@@ -8,22 +8,41 @@ import 'package:solar_calculator/solar_calculator.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class Sector {
-  final String guid = const Uuid().v4();
-  String id = '';
-  String name = '';
-  double orientation = 0;
-  bool horizonLimit = false;
-  List<Point> horizonPoints = [];
-  List<Point> ceilingPoints = [];
-  bool louvreTracking = false;
-  double louvreSpacing = 0;
-  double louvreDepth = 0;
-  // ... additional sector fields
-  String brightnessAddress = '';
-  String irradianceAddress = '';
-  String facadeAddress = '';
+  String guid;
+  String id;
+  String name;
+  double orientation;
+  bool horizonLimit;
+  List<Point> horizonPoints;
+  List<Point> ceilingPoints;
+  bool louvreTracking;
+  double louvreSpacing;
+  double louvreDepth;
+  String brightnessAddress;
+  String irradianceAddress;
+  String facadeAddress;
   LatLng? facadeStart;
   LatLng? facadeEnd;
+
+  Sector({
+    String? guid,
+    this.id = '',
+    this.name = '',
+    this.orientation = 0,
+    this.horizonLimit = false,
+    List<Point>? horizonPoints,
+    List<Point>? ceilingPoints,
+    this.louvreTracking = false,
+    this.louvreSpacing = 0,
+    this.louvreDepth = 0,
+    this.brightnessAddress = '',
+    this.irradianceAddress = '',
+    this.facadeAddress = '',
+    this.facadeStart,
+    this.facadeEnd,
+  })  : guid = guid ?? const Uuid().v4(),
+        horizonPoints = horizonPoints ?? [],
+        ceilingPoints = ceilingPoints ?? [];
 }
 
 class Point {
@@ -157,7 +176,7 @@ class _SectorWidgetState extends State<SectorWidget> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      ElevatedButton(
+                      ElevatedButton.icon(
                         onPressed: () async {
                           // Open map dialog to pick two points
                           final result = await showDialog<Map<String, LatLng>>(
@@ -187,7 +206,8 @@ class _SectorWidgetState extends State<SectorWidget> {
                             });
                           }
                         },
-                        child: const Text('Ausrichtung auf Karte wählen'),
+                        icon: const Icon(Icons.map),
+                        label: const Text('Auf Karte wählen'),
                       ),
                       // Gruppenadresse Helligkeit
                       const SizedBox(height: 16),

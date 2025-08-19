@@ -224,6 +224,19 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                         ),
                     ],
                   ),
+                  // Required attributions for Esri World Imagery tiles and Nominatim/OSM search
+                  RichAttributionWidget(
+                    // Display required data source credits
+                    showFlutterMapAttribution: false,
+                    attributions: const [
+                      TextSourceAttribution(
+                        'Imagery: Esri World Imagery — © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+                      ),
+                      TextSourceAttribution(
+                        'Search: Nominatim (OpenStreetMap) — © OpenStreetMap contributors',
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

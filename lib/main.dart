@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:xml/xml.dart' as xml;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
+import 'dart:async';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+import 'dart:js_util' as js_util;
 import 'sector.dart';
+import 'location_dialog.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +24,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Konfigurator',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -118,8 +128,144 @@ class ConfigScreen extends StatefulWidget {
   State<ConfigScreen> createState() => _ConfigScreenState();
 }
 
+class SaveIntent extends Intent {
+  const SaveIntent();
+}
+
+class SaveAsIntent extends Intent {
+  const SaveAsIntent();
+}
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
+  // Remember last save destination
+  String? _lastXmlPath; // Native/Desktop last path
+  Object? _webFileHandle; // Web File System Access API handle
+  // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
+  StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  // --- XML Parsing ---
+  void fromXml(String xmlString) {
+    final doc = xml.XmlDocument.parse(xmlString);
+    final root = doc.getElement('Konfiguration');
+    if (root == null) return;
+    setState(() {
+      version = root.getElement('Version')?.innerText ?? '';
+      brightnessAddress = root.getElement('BrightnessAddress')?.innerText ?? '';
+      irradianceAddress = root.getElement('IrradianceAddress')?.innerText ?? '';
+      _latController.text = root.getElement('Latitude')?.innerText ?? '';
+      _lngController.text = root.getElement('Longitude')?.innerText ?? '';
+      azElOption = root.getElement('AzElOption')?.innerText ?? 'Internet';
+      timeAddress = root.getElement('TimeAddress')?.innerText ?? '';
+      azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
+      elevationAddress = root.getElement('ElevationAddress')?.innerText ?? '';
+      // Sectors
+      sectors.clear();
+      final sectorsElem = root.getElement('Sektoren') ?? root.getElement('Sectors');
+      if (sectorsElem != null) {
+        for (final sElem in sectorsElem.findElements('Sektor').isNotEmpty
+            ? sectorsElem.findElements('Sektor')
+            : sectorsElem.findElements('Sector')) {
+          final s = Sector();
+          s.name = sElem.getElement('Name')?.innerText ?? '';
+          s.orientation = double.tryParse(sElem.getElement('Orientation')?.innerText ?? '') ?? 0;
+          s.horizonLimit = sElem.getElement('HorizonLimit')?.innerText == 'true';
+          s.louvreTracking = sElem.getElement('LouvreTracking')?.innerText == 'true';
+          s.louvreSpacing = double.tryParse(sElem.getElement('LouvreSpacing')?.innerText ?? '') ?? 0;
+          s.louvreDepth = double.tryParse(sElem.getElement('LouvreDepth')?.innerText ?? '') ?? 0;
+          s.brightnessAddress = sElem.getElement('BrightnessAddress')?.innerText ?? '';
+          s.irradianceAddress = sElem.getElement('IrradianceAddress')?.innerText ?? '';
+          s.facadeAddress = sElem.getElement('FacadeAddress')?.innerText ?? '';
+          // GUID
+          final guid = sElem.getElement('GUID')?.innerText;
+          if (guid != null) {
+            // ignore: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member
+            s.guid = guid;
+          }
+          // FacadeStart/End
+          final fs = sElem.getElement('FacadeStart')?.innerText;
+          if (fs != null && fs.contains(',')) {
+            final parts = fs.split(',');
+            if (parts.length == 2) {
+              final lat = double.tryParse(parts[0]);
+              final lng = double.tryParse(parts[1]);
+              if (lat != null && lng != null) {
+                s.facadeStart = LatLng(lat, lng);
+              }
+            }
+          }
+          final fe = sElem.getElement('FacadeEnd')?.innerText;
+          if (fe != null && fe.contains(',')) {
+            final parts = fe.split(',');
+            if (parts.length == 2) {
+              final lat = double.tryParse(parts[0]);
+              final lng = double.tryParse(parts[1]);
+              if (lat != null && lng != null) {
+                s.facadeEnd = LatLng(lat, lng);
+              }
+            }
+          }
+          // HorizonPoints
+          s.horizonPoints = [];
+          final hpElem = sElem.getElement('HorizonPoints');
+          if (hpElem != null) {
+            for (final pElem in hpElem.findElements('Point')) {
+              final x = double.tryParse(pElem.getElement('X')?.innerText ?? '') ?? 0;
+              final y = double.tryParse(pElem.getElement('Y')?.innerText ?? '') ?? 0;
+              s.horizonPoints.add(Point(x: x, y: y));
+            }
+          }
+          // CeilingPoints
+          s.ceilingPoints = [];
+          final cpElem = sElem.getElement('CeilingPoints');
+          if (cpElem != null) {
+            for (final pElem in cpElem.findElements('Point')) {
+              final x = double.tryParse(pElem.getElement('X')?.innerText ?? '') ?? 0;
+              final y = double.tryParse(pElem.getElement('Y')?.innerText ?? '') ?? 0;
+              s.ceilingPoints.add(Point(x: x, y: y));
+            }
+          }
+          sectors.add(s);
+        }
+      }
+    });
+  }
+
+  Future<void> _openXml() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['sunproj'],
+      withData: kIsWeb,
+    );
+    if (result != null) {
+      try {
+        String content;
+        if (kIsWeb) {
+          // On web, read from bytes
+          final bytes = result.files.single.bytes;
+          if (bytes == null) throw Exception('Datei konnte nicht gelesen werden.');
+          content = String.fromCharCodes(bytes);
+        } else {
+          // On native, read from file path
+          final path = result.files.single.path;
+          if (path == null) throw Exception('Dateipfad fehlt.');
+          final file = File(path);
+          content = await file.readAsString();
+        }
+        fromXml(content);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Konfiguration geladen.')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Fehler beim Laden der Datei: $e')),
+          );
+        }
+      }
+    }
+  }
 
   // General settings
   String version = '';
@@ -135,11 +281,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
   // Sector list
   List<Sector> sectors = [];
 
-  // Function toggles
-  bool horizonLimit = false;
-  bool louvreTracking = false;
-  bool shadowEdgeTracking = false;
-
   // Threshold linkage
   bool linkBrightnessIrradiance = false;
 
@@ -148,6 +289,261 @@ class _ConfigScreenState extends State<ConfigScreen> {
   String selectedPage = 'Allgemein';
   Sector? _copiedSector;
   int? _hoveredSectorIndex;
+
+  // Standort (Lat/Lng)
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _lngController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _keyDownSub = html.window.onKeyDown.listen((e) {
+        final key = (e.key ?? '').toLowerCase();
+        final isS = key == 's' || e.code == 'KeyS';
+        if ((e.ctrlKey || e.metaKey) && isS) {
+          // Stop the browser from opening its own save dialog
+          e.preventDefault();
+          js_util.callMethod(e, 'stopImmediatePropagation', []);
+          if (e.shiftKey) {
+            _saveAsXml();
+          } else {
+            _saveXml();
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _keyDownSub?.cancel();
+    super.dispose();
+  }
+
+  // --- XML Serialization ---
+  String toXml() {
+    final builder = xml.XmlBuilder();
+    builder.processing('xml', 'version="1.0" encoding="UTF-8"');
+    builder.element('Konfiguration', nest: () {
+      builder.element('Version', nest: version);
+      builder.element('BrightnessAddress', nest: brightnessAddress);
+      builder.element('IrradianceAddress', nest: irradianceAddress);
+      builder.element('Latitude', nest: _latController.text);
+      builder.element('Longitude', nest: _lngController.text);
+      builder.element('AzElOption', nest: azElOption);
+      builder.element('TimeAddress', nest: timeAddress);
+      builder.element('AzimuthAddress', nest: azimuthAddress);
+      builder.element('ElevationAddress', nest: elevationAddress);
+      builder.element('Sectors', nest: () {
+        for (final s in sectors) {
+          builder.element('Sector', nest: () {
+            builder.element('GUID', nest: s.guid);
+            builder.element('Name', nest: s.name);
+            builder.element('Orientation', nest: s.orientation.toString());
+            builder.element('HorizonLimit', nest: s.horizonLimit.toString());
+            builder.element('LouvreTracking', nest: s.louvreTracking.toString());
+            builder.element('LouvreSpacing', nest: s.louvreSpacing.toString());
+            builder.element('LouvreDepth', nest: s.louvreDepth.toString());
+            builder.element('BrightnessAddress', nest: s.brightnessAddress);
+            builder.element('IrradianceAddress', nest: s.irradianceAddress);
+            builder.element('FacadeAddress', nest: s.facadeAddress);
+            builder.element('FacadeStart', nest: s.facadeStart != null ?
+              '${s.facadeStart!.latitude},${s.facadeStart!.longitude}' : '');
+            builder.element('FacadeEnd', nest: s.facadeEnd != null ?
+              '${s.facadeEnd!.latitude},${s.facadeEnd!.longitude}' : '');
+            builder.element('HorizonPoints', nest: () {
+              for (final p in s.horizonPoints) {
+                builder.element('Point', nest: () {
+                  builder.element('X', nest: p.x.toString());
+                  builder.element('Y', nest: p.y.toString());
+                });
+              }
+            });
+            builder.element('CeilingPoints', nest: () {
+              for (final p in s.ceilingPoints) {
+                builder.element('Point', nest: () {
+                  builder.element('X', nest: p.x.toString());
+                  builder.element('Y', nest: p.y.toString());
+                });
+              }
+            });
+          });
+        }
+      });
+    });
+    return builder.buildDocument().toXmlString(pretty: true);
+  }
+
+  Future<void> _saveAsXml() async {
+    _formKey.currentState?.save();
+    final xmlString = toXml();
+    if (kIsWeb) {
+      // Prefer the File System Access API when available so we can overwrite next time
+      final hasFileSystem = js_util.hasProperty(html.window, 'showSaveFilePicker');
+      if (hasFileSystem) {
+        try {
+          final pickerOptions = js_util.jsify({
+            'suggestedName': 'konfiguration.sunproj',
+            'types': [
+              {
+                'description': 'sunproj Files',
+                'accept': {'text/xml': ['.sunproj']}
+              }
+            ]
+          });
+          final fileHandle = await js_util
+              .promiseToFuture(js_util.callMethod(html.window, 'showSaveFilePicker', [pickerOptions]));
+          final writable =
+              await js_util.promiseToFuture(js_util.callMethod(fileHandle, 'createWritable', []));
+          await js_util.promiseToFuture(js_util.callMethod(writable, 'write', [xmlString]));
+          await js_util.promiseToFuture(js_util.callMethod(writable, 'close', []));
+
+          // Remember handle for future quick saves
+          _webFileHandle = fileHandle;
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Konfiguration gespeichert.')),
+            );
+          }
+          return;
+        } catch (e) {
+          // Fall back to download below
+        }
+      }
+
+      // Fallback: trigger download using AnchorElement (cannot overwrite automatically later)
+      final bytes = utf8.encode(xmlString);
+      final blob = html.Blob([bytes], 'text/xml');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute('download', 'konfiguration.sunproj')
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Projekt gespeichert.')),
+        );
+      }
+    } else {
+      // Native/Desktop: let the user choose a location and remember it
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Projekt speichern',
+        fileName: 'konfiguration.sunproj',
+        type: FileType.custom,
+        allowedExtensions: ['sunproj'],
+      );
+      if (result != null) {
+        final file = File(result);
+        await file.writeAsString(xmlString);
+        _lastXmlPath = result; // remember for quick save
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Konfiguration gespeichert.')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _saveXml() async {
+    _formKey.currentState?.save();
+    final xmlString = toXml();
+
+    if (kIsWeb) {
+      final hasFileSystem = js_util.hasProperty(html.window, 'showSaveFilePicker');
+      // If we have a remembered handle, write directly. Otherwise fall back to Save As.
+      if (hasFileSystem && _webFileHandle != null) {
+        try {
+          final writable =
+              await js_util.promiseToFuture(js_util.callMethod(_webFileHandle!, 'createWritable', []));
+          await js_util.promiseToFuture(js_util.callMethod(writable, 'write', [xmlString]));
+          await js_util.promiseToFuture(js_util.callMethod(writable, 'close', []));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Konfiguration gespeichert.')),
+            );
+          }
+          return;
+        } catch (e) {
+          // If writing fails (e.g., permission revoked), forget handle and do Save As
+          _webFileHandle = null;
+        }
+      }
+      await _saveAsXml();
+      return;
+    } else {
+      // Native/Desktop: overwrite the last path if we have one; otherwise Save As
+      if (_lastXmlPath != null) {
+        final file = File(_lastXmlPath!);
+        await file.writeAsString(xmlString);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Konfiguration gespeichert.')),
+          );
+        }
+      } else {
+        await _saveAsXml();
+      }
+    }
+  }
+
+  Future<void> _pickLocation() async {
+    LatLng? initial;
+    final lat = double.tryParse(_latController.text);
+    final lng = double.tryParse(_lngController.text);
+    if (lat != null && lng != null) {
+      initial = LatLng(lat, lng);
+    }
+
+    final LatLng? picked = await showDialog<LatLng>(
+      context: context,
+      builder: (ctx) => LocationPickerDialog(initialAddress: '', start: initial),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _latController.text = picked.latitude.toStringAsFixed(6);
+        _lngController.text = picked.longitude.toStringAsFixed(6);
+      });
+    }
+  }
+
+  Widget _buildLocationSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Standort'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _latController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(labelText: 'Breitengrad (Lat)'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _lngController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                decoration: const InputDecoration(labelText: 'Längengrad (Lng)'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _pickLocation,
+              icon: const Icon(Icons.map),
+              label: const Text('Auf Karte wählen'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -263,8 +659,49 @@ class _ConfigScreenState extends State<ConfigScreen> {
       ),
     );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Konfiguration')),
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        // Windows/Linux: Ctrl+S / Ctrl+Shift+S
+        SingleActivator(LogicalKeyboardKey.keyS, control: true): const SaveIntent(),
+        SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true): const SaveAsIntent(),
+        // macOS: ⌘S / ⌘⇧S
+        SingleActivator(LogicalKeyboardKey.keyS, meta: true): const SaveIntent(),
+        SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true): const SaveAsIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          SaveIntent: CallbackAction<SaveIntent>(onInvoke: (intent) {
+            _saveXml();
+            return null;
+          }),
+          SaveAsIntent: CallbackAction<SaveAsIntent>(onInvoke: (intent) {
+            _saveAsXml();
+            return null;
+          }),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Konfiguration'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.folder_open),
+                  tooltip: 'Projekt öffnen',
+                  onPressed: _openXml,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  tooltip: 'Speichern (Strg/⌘+S)',
+                  onPressed: _saveXml,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.save_as),
+                  tooltip: 'Speichern unter… (Strg/⌘+Umschalt+S)',
+                  onPressed: _saveAsXml,
+                ),
+              ],
+            ),
       drawer: isDesktop
           ? null
           : Drawer(
@@ -423,6 +860,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       onSaved: (v) => irradianceAddress = v ?? '',
                                     ),
                                     const SizedBox(height: 24),
+                                    // Standort (Lat/Lng)
+                                    _buildLocationSection(),
+                                    const SizedBox(height: 24),
                                     // Azimut/Elevation section
                                     const Text('Azimut/Elevation'),
                                     DropdownButtonFormField<String>(
@@ -520,6 +960,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           onSaved: (v) => irradianceAddress = v ?? '',
                         ),
                         const SizedBox(height: 24),
+                        // Standort (Lat/Lng)
+                        _buildLocationSection(),
+                        const SizedBox(height: 24),
                         // Azimut/Elevation section
                         const Text('Azimut/Elevation'),
                         DropdownButtonFormField<String>(
@@ -580,17 +1023,16 @@ class _ConfigScreenState extends State<ConfigScreen> {
                         ],
                       ),
                     ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 // Data models and helper widgets (to be implemented)
 
-class Point {
-  double x;
-  double y;
-  Point({this.x = 0, this.y = 0});
-}
+
 
 class Threshold {
   // TODO: define fields for address, DPT, thresholds, delays, dynamic
