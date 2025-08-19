@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:async';
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'package:universal_html/html.dart' as html;
+import 'package:universal_html/js_util.dart' as js_util;
 import 'sector.dart';
 import 'location_dialog.dart';
 import 'package:latlong2/latlong.dart';
