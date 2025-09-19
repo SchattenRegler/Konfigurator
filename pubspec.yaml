@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   file_picker: ^10.2.0
   uuid: ^4.5.1
   geocoding: ^4.0.0

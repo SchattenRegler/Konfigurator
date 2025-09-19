@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:xml/xml.dart' as xml;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import 'dart:async';
-// ignore: avoid_web_libraries_in_flutter
 import 'package:universal_html/html.dart' as html;
 import 'package:universal_html/js_util.dart' as js_util;
 import 'sector.dart';
+import 'globals.dart';
 import 'location_dialog.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
+import 'timeswitch.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +27,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Konfigurator',
+      // Force German UI for built-in widgets (e.g., pickers)
+      locale: const Locale('de'),
+      supportedLocales: const [Locale('de')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -59,16 +69,33 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _openProject() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['sunproj'],
+      withData: kIsWeb,
     );
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
+    if (result != null) {
       try {
-        final content = await file.readAsString();
-        // TODO: parse .sunproj content and initialize project
+        String content;
+        if (kIsWeb) {
+          final bytes = result.files.single.bytes;
+          if (bytes == null) throw Exception('Datei konnte nicht gelesen werden.');
+          content = String.fromCharCodes(bytes);
+        } else {
+          final path = result.files.single.path;
+          if (path == null) throw Exception('Dateipfad fehlt.');
+          final file = File(path);
+          content = await file.readAsString();
+        }
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ConfigScreen(initialXmlContent: content),
+          ),
+        );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Laden der Datei: $e')),
         );
@@ -122,7 +149,9 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class ConfigScreen extends StatefulWidget {
-  const ConfigScreen({Key? key}) : super(key: key);
+  const ConfigScreen({Key? key, this.initialXmlContent}) : super(key: key);
+
+  final String? initialXmlContent;
 
   @override
   State<ConfigScreen> createState() => _ConfigScreenState();
@@ -227,6 +256,38 @@ class _ConfigScreenState extends State<ConfigScreen> {
           sectors.add(s);
         }
       }
+      // TimePrograms
+      timePrograms.clear();
+      final timersElem = root.getElement('TimePrograms');
+      if (timersElem != null) {
+        for (final pElem in timersElem.findElements('TimeProgram')) {
+          final p = TimeProgram();
+          p.name = pElem.getElement('Name')?.innerText ?? '';
+          final programGA = pElem.getElement('GroupAddress')?.innerText; // legacy fallback
+          final guid = pElem.getElement('GUID')?.innerText;
+          if (guid != null) {
+            p.guid = guid;
+          }
+          final cmdsElem = pElem.getElement('Commands');
+          if (cmdsElem != null) {
+            for (final cElem in cmdsElem.findElements('Command')) {
+              final typeStr = cElem.getElement('Type')?.innerText ?? '1bit';
+              final mask = int.tryParse(cElem.getElement('Weekdays')?.innerText ?? '0') ?? 0;
+              final time = cElem.getElement('Time')?.innerText ?? '08:00';
+              final val = int.tryParse(cElem.getElement('Value')?.innerText ?? '0') ?? 0;
+              final cGa = cElem.getElement('GroupAddress')?.innerText ?? (programGA ?? '');
+              p.commands.add(TimeCommand(
+                type: typeStr.toLowerCase() == '1byte' ? CommandType.oneByte : CommandType.oneBit,
+                weekdaysMask: mask,
+                time: time,
+                value: val,
+                groupAddress: cGa,
+              ));
+            }
+          }
+          timePrograms.add(p);
+        }
+      }
     });
   }
 
@@ -251,12 +312,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
           final file = File(path);
           content = await file.readAsString();
         }
-        fromXml(content);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Konfiguration geladen.')),
-          );
-        }
+        _loadXmlContent(content);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -266,33 +322,27 @@ class _ConfigScreenState extends State<ConfigScreen> {
       }
     }
   }
-
-  // General settings
-  String version = '';
-  String brightnessAddress = '';
-  String irradianceAddress = '';
-
-  // Azimuth/Elevation settings
-  String azElOption = 'Internet';
-  String timeAddress = '';
-  String azimuthAddress = '';
-  String elevationAddress = '';
-
-  // Sector list
-  List<Sector> sectors = [];
-
-  // Threshold linkage
-  bool linkBrightnessIrradiance = false;
-
   // State for navigation and sector editing
   int? editingSectorIndex;
+  int? editingTimerIndex;
   String selectedPage = 'Allgemein';
   Sector? _copiedSector;
   int? _hoveredSectorIndex;
+  TimeProgram? _copiedProgram;
+  int? _hoveredProgramIndex;
 
   // Standort (Lat/Lng)
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lngController = TextEditingController();
+
+  void _loadXmlContent(String content, {bool showSuccess = true}) {
+    fromXml(content);
+    if (mounted && showSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Konfiguration geladen.')),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -310,6 +360,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
           } else {
             _saveXml();
           }
+        }
+      });
+    }
+
+    final initialContent = widget.initialXmlContent;
+    if (initialContent != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadXmlContent(initialContent);
         }
       });
     }
@@ -365,6 +424,25 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 builder.element('Point', nest: () {
                   builder.element('X', nest: p.x.toString());
                   builder.element('Y', nest: p.y.toString());
+                });
+              }
+            });
+          });
+        }
+      });
+      builder.element('TimePrograms', nest: () {
+        for (final p in timePrograms) {
+          builder.element('TimeProgram', nest: () {
+            builder.element('GUID', nest: p.guid);
+            builder.element('Name', nest: p.name);
+            builder.element('Commands', nest: () {
+              for (final c in p.commands) {
+                builder.element('Command', nest: () {
+                  builder.element('Type', nest: c.type == CommandType.oneByte ? '1byte' : '1bit');
+                  builder.element('Weekdays', nest: c.weekdaysMask.toString());
+                  builder.element('Time', nest: c.time);
+                  builder.element('Value', nest: c.value.toString());
+                  builder.element('GroupAddress', nest: c.groupAddress);
                 });
               }
             });
@@ -430,7 +508,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       // Native/Desktop: let the user choose a location and remember it
       final result = await FilePicker.platform.saveFile(
         dialogTitle: 'Projekt speichern',
-        fileName: 'konfiguration.sunproj',
+        fileName: 'konfiguration',
         type: FileType.custom,
         allowedExtensions: ['sunproj'],
       );
@@ -506,6 +584,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
       setState(() {
         _latController.text = picked.latitude.toStringAsFixed(6);
         _lngController.text = picked.longitude.toStringAsFixed(6);
+        latitude = picked.latitude;
+        longitude = picked.longitude;
       });
     }
   }
@@ -520,17 +600,25 @@ class _ConfigScreenState extends State<ConfigScreen> {
           children: [
             Expanded(
               child: TextFormField(
-                controller: _latController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                decoration: const InputDecoration(labelText: 'Breitengrad (Lat)'),
+              controller: _latController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              decoration: const InputDecoration(labelText: 'Breitengrad (Lat)'),
+              onSaved: (v) => latitude = double.tryParse(v ?? '') ?? 0,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+              ],
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextFormField(
-                controller: _lngController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                decoration: const InputDecoration(labelText: 'Längengrad (Lng)'),
+              controller: _lngController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              decoration: const InputDecoration(labelText: 'Längengrad'),
+              onSaved: (v) => longitude = double.tryParse(v ?? '') ?? 0,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+              ],
               ),
             ),
             const SizedBox(width: 12),
@@ -581,22 +669,28 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   return MouseRegion(
                     onEnter: (_) => setState(() => _hoveredSectorIndex = i),
                     onExit: (_) => setState(() => _hoveredSectorIndex = null),
-                    child: ListTile(
-                      title: Text(s.name.isEmpty ? 'Neuer Sektor' : s.name),
-                      trailing: _hoveredSectorIndex == i
-                          ? IconButton(
-                              icon: const Icon(Icons.copy),
-                              onPressed: () => setState(() {
-                                _copiedSector = s;
-                              }),
-                            )
-                          : null,
-                      selected: editingSectorIndex == i,
-                      selectedTileColor: Colors.blue.shade100,
-                      tileColor: Colors.grey.shade200,
-                      onTap: () => setState(() {
-                        editingSectorIndex = i;
-                      }),
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: s.nameNotifier,
+                      builder: (context, name, _) {
+                        return ListTile(
+                          title: Text(name.isEmpty ? 'Neuer Sektor' : name),
+                          trailing: _hoveredSectorIndex == i
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy),
+                                  onPressed: () => setState(() {
+                                    _copiedSector = s;
+                                  }),
+                                )
+                              : null,
+                          selected: editingSectorIndex == i,
+                          selectedTileColor: Colors.blue.shade100,
+                          tileColor: Colors.grey.shade200,
+                          onTap: () => setState(() {
+                            editingSectorIndex = i;
+                            editingTimerIndex = null;
+                          }),
+                        );
+                      },
                     ),
                   );
                 }).toList(),
@@ -608,6 +702,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     setState(() {
                       sectors.add(Sector());
                       editingSectorIndex = sectors.length - 1;
+                      editingTimerIndex = null;
                     });
                   },
                 ),
@@ -636,23 +731,88 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                     ..facadeEnd = _copiedSector!.facadeEnd
                                     );
                                   editingSectorIndex = sectors.length - 1;
+                                  editingTimerIndex = null;
                                 });
                               }
                             : null,
                 ),
               ],
             ),
-            ListTile(
+            ExpansionTile(
               title: const Text('Zeitschaltuhren'),
-              selected: editingSectorIndex == null && selectedPage == 'Zeitschaltuhren',
-              selectedTileColor: Colors.blue.shade100,
-              tileColor: Colors.grey.shade200,
-              onTap: () {
-                setState(() {
-                  editingSectorIndex = null;
-                  selectedPage = 'Zeitschaltuhren';
-                });
-              },
+              children: [
+                ...timePrograms.asMap().entries.map((e) {
+                  final i = e.key;
+                  final p = e.value;
+                  return MouseRegion(
+                    onEnter: (_) => setState(() => _hoveredProgramIndex = i),
+                    onExit: (_) => setState(() => _hoveredProgramIndex = null),
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: p.nameNotifier,
+                      builder: (context, name, _) {
+                        return ListTile(
+                          title: Text(name.isEmpty ? 'Neues Programm' : name),
+                          trailing: _hoveredProgramIndex == i
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy),
+                                  onPressed: () => setState(() {
+                                    _copiedProgram = p;
+                                  }),
+                                )
+                              : null,
+                          selected: editingTimerIndex == i && selectedPage == 'Zeitschaltuhren',
+                          selectedTileColor: Colors.blue.shade100,
+                          tileColor: Colors.grey.shade200,
+                          onTap: () => setState(() {
+                            selectedPage = 'Zeitschaltuhren';
+                            editingTimerIndex = i;
+                            editingSectorIndex = null;
+                          }),
+                        );
+                      },
+                    ),
+                  );
+                }).toList(),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('Programm hinzufügen'),
+                  tileColor: Colors.grey.shade200,
+                  onTap: () {
+                    setState(() {
+                      timePrograms.add(TimeProgram());
+                      selectedPage = 'Zeitschaltuhren';
+                      editingTimerIndex = timePrograms.length - 1;
+                      editingSectorIndex = null;
+                    });
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.paste),
+                  title: const Text('Einfügen'),
+                  tileColor: Colors.grey.shade200,
+                  enabled: _copiedProgram != null,
+                  onTap: _copiedProgram != null
+                      ? () {
+                          setState(() => selectedPage = 'Zeitschaltuhren');
+                          setState(() {
+                            timePrograms.add(TimeProgram()
+                              ..name = _copiedProgram!.name
+                              ..commands = _copiedProgram!.commands
+                                  .map((c) => TimeCommand(
+                                        type: c.type,
+                                        weekdaysMask: c.weekdaysMask,
+                                        time: c.time,
+                                        value: c.value,
+                                        groupAddress: c.groupAddress,
+                                      ))
+                                  .toList());
+                            editingTimerIndex = timePrograms.length - 1;
+                            editingSectorIndex = null;
+                          });
+                        }
+                      : null,
+                ),
+              ],
             ),
           ],
         ),
@@ -757,6 +917,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               setState(() => selectedPage = 'Sektoren');
                               setState(() {
                                 editingSectorIndex = i;
+                                editingTimerIndex = null;
                               });
                             },
                           ),
@@ -771,6 +932,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           setState(() {
                             sectors.add(Sector());
                             editingSectorIndex = sectors.length - 1;
+                            editingTimerIndex = null;
                           });
                         },
                       ),
@@ -799,23 +961,89 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                     ..facadeEnd = _copiedSector!.facadeEnd
                                     );
                                   editingSectorIndex = sectors.length - 1;
+                                  editingTimerIndex = null;
                                 });
                               }
                             : null,
                       ),
                     ],
                   ),
-                  ListTile(
+                  ExpansionTile(
                     title: const Text('Zeitschaltuhren'),
-                    selected: editingSectorIndex == null && selectedPage == 'Zeitschaltuhren',
-                    selectedTileColor: Colors.blue.shade100,
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() {
-                        editingSectorIndex = null;
-                        selectedPage = 'Zeitschaltuhren';
-                      });
-                    },
+                    children: [
+                      ...timePrograms.asMap().entries.map((e) {
+                        final i = e.key;
+                        final p = e.value;
+                        return MouseRegion(
+                          onEnter: (_) => setState(() => _hoveredProgramIndex = i),
+                          onExit: (_) => setState(() => _hoveredProgramIndex = null),
+                          child: ValueListenableBuilder<String>(
+                            valueListenable: p.nameNotifier,
+                            builder: (context, name, _) {
+                              return ListTile(
+                                title: Text(name.isEmpty ? 'Neues Programm' : name),
+                                trailing: _hoveredProgramIndex == i
+                                    ? IconButton(
+                                        icon: const Icon(Icons.copy),
+                                        onPressed: () => setState(() {
+                                          _copiedProgram = p;
+                                        }),
+                                      )
+                                    : null,
+                                selected: editingTimerIndex == i && selectedPage == 'Zeitschaltuhren',
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  setState(() => selectedPage = 'Zeitschaltuhren');
+                                  setState(() {
+                                    editingTimerIndex = i;
+                                    editingSectorIndex = null;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        );
+                      }).toList(),
+                      ListTile(
+                        leading: const Icon(Icons.add),
+                        title: const Text('Programm hinzufügen'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() => selectedPage = 'Zeitschaltuhren');
+                          setState(() {
+                            timePrograms.add(TimeProgram());
+                            editingTimerIndex = timePrograms.length - 1;
+                            editingSectorIndex = null;
+                          });
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.paste),
+                        title: const Text('Einfügen'),
+                        enabled: _copiedProgram != null,
+                        onTap: _copiedProgram != null
+                            ? () {
+                                Navigator.pop(context);
+                                setState(() => selectedPage = 'Zeitschaltuhren');
+                                setState(() {
+                                  timePrograms.add(TimeProgram()
+                                    ..name = _copiedProgram!.name
+                                    ..commands = _copiedProgram!.commands
+                                        .map((c) => TimeCommand(
+                                              type: c.type,
+                                              weekdaysMask: c.weekdaysMask,
+                                              time: c.time,
+                                              value: c.value,
+                                              groupAddress: c.groupAddress,
+                                            ))
+                                        .toList());
+                                  editingTimerIndex = timePrograms.length - 1;
+                                  editingSectorIndex = null;
+                                });
+                              }
+                            : null,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -922,15 +1150,23 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                     ],
                                   ),
                                 )
-                              : SingleChildScrollView(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    children: [
-                                      const Text('Zeitschaltuhren Section'),
-                                      // TODO: implement Zeitschaltuhren UI
-                                    ],
-                                  ),
-                                ),
+                              : selectedPage == 'Zeitschaltuhren'
+                                  ? (editingTimerIndex != null
+                                      ? TimeProgramWidget(
+                                          key: ValueKey('tp_$editingTimerIndex'),
+                                          program: timePrograms[editingTimerIndex!],
+                                          onRemove: () => setState(() {
+                                            timePrograms.removeAt(editingTimerIndex!);
+                                            editingTimerIndex = null;
+                                          }),
+                                        )
+                                      : Center(
+                                        child: Padding(
+                                        padding: const EdgeInsets.all(16),
+                                        child: Text('Bitte ein Zeitschaltprogramm auswählen'),
+                                        ),
+                                      ))
+                                  : const SizedBox.shrink(),
                 ),
               ],
             )
@@ -1014,15 +1250,21 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           ),
                         )
                     )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          const Text('Zeitschaltuhren Section'),
-                          // TODO: implement Zeitschaltuhren UI
-                        ],
-                      ),
-                    ),
+                  : (editingTimerIndex != null
+                      ? TimeProgramWidget(
+                          key: ValueKey('tp_m_$editingTimerIndex'),
+                          program: timePrograms[editingTimerIndex!],
+                          onRemove: () => setState(() {
+                            timePrograms.removeAt(editingTimerIndex!);
+                            editingTimerIndex = null;
+                          }),
+                        )
+                      : Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text('Bitte ein Zeitschaltprogramm auswählen'),
+                          ),
+                        )),
           ),
         ),
       ),

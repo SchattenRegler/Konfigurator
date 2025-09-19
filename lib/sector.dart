@@ -7,6 +7,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:solar_calculator/solar_calculator.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
 
 class Sector {
   String guid;
@@ -71,6 +74,13 @@ class Point {
   Point({this.x = 0, this.y = 0});
 }
 
+// Data model for parsed CSV per sector
+class _CsvSectorData {
+  _CsvSectorData({required this.horizon, required this.ceiling});
+  final List<Point> horizon;
+  final List<Point> ceiling;
+}
+
 class SectorWidget extends StatefulWidget {
   final Sector sector;
   final VoidCallback onRemove;
@@ -93,12 +103,13 @@ class _SectorWidgetState extends State<SectorWidget> {
   final Map<Point, TextEditingController> _horizonElCtrls = {};
   final Map<Point, TextEditingController> _ceilingAzCtrls = {};
   final Map<Point, TextEditingController> _ceilingElCtrls = {};
+  // Validation errors per field
+  final Map<Point, String?> _horizonAzErrors = {};
+  final Map<Point, String?> _horizonElErrors = {};
+  final Map<Point, String?> _ceilingAzErrors = {};
+  final Map<Point, String?> _ceilingElErrors = {};
   DateTime _selectedDate = DateTime.now();
   String? _orientationError;
-  String? _horizonAzError;
-  String? _horizonElError;
-  String? _ceilingAzError;
-  String? _ceilingElError;
   String? _brightnessAddressError;
   String? _brightnessUpperThresholdError;
   String? _brightnessUpperDelayError;
@@ -109,6 +120,9 @@ class _SectorWidgetState extends State<SectorWidget> {
   String? _irradianceUpperDelayError;
   String? _irradianceLowerThresholdError;
   String? _irradianceLowerDelayError;
+
+  // CSV import state
+  bool _isImporting = false;
 
   @override
   void initState() {
@@ -157,6 +171,8 @@ class _SectorWidgetState extends State<SectorWidget> {
       sector.horizonPoints.sort((a, b) => a.x.compareTo(b.x));
       _horizonAzCtrls[p] = TextEditingController(text: '0');
       _horizonElCtrls[p] = TextEditingController(text: '0');
+      _horizonAzErrors[p] = null;
+      _horizonElErrors[p] = null;
     });
   }
 
@@ -167,6 +183,8 @@ class _SectorWidgetState extends State<SectorWidget> {
       sector.ceilingPoints.sort((a, b) => a.x.compareTo(b.x));
       _ceilingAzCtrls[p] = TextEditingController(text: '0');
       _ceilingElCtrls[p] = TextEditingController(text: '0');
+      _ceilingAzErrors[p] = null;
+      _ceilingElErrors[p] = null;
     });
   }
 
@@ -197,6 +215,209 @@ class _SectorWidgetState extends State<SectorWidget> {
       }
     }
     return spots;
+  }
+
+  Future<void> _importCsv() async {
+    if (_isImporting) return;
+    setState(() => _isImporting = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv', 'txt'],
+        withData: true,
+      );
+      if (result == null) return; // canceled
+
+      String content = '';
+      if (result.files.single.bytes != null) {
+        content = String.fromCharCodes(result.files.single.bytes!);
+      } else if (!kIsWeb && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        content = await file.readAsString();
+      } else {
+        throw Exception('Datei konnte nicht gelesen werden.');
+      }
+
+      // Parse CSV into sector -> horizon/ceiling points
+      final parsed = _parseCsv(content);
+      final sectorIds = parsed.keys.where((k) => k != 0).toList()..sort();
+      if (sectorIds.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Keine gültigen Sektoren in der CSV gefunden.')),
+          );
+        }
+        return;
+      }
+
+      final selected = await _pickSectorFromCsv(sectorIds, parsed);
+      if (selected == null) return; // canceled
+
+      final data = parsed[selected]!;
+      setState(() {
+        // Replace existing points with imported ones
+        // Clear controllers to avoid leaks for removed points
+        for (final c in _horizonAzCtrls.values) { c.dispose(); }
+        for (final c in _horizonElCtrls.values) { c.dispose(); }
+        _horizonAzCtrls.clear();
+        _horizonElCtrls.clear();
+        _horizonAzErrors.clear();
+        _horizonElErrors.clear();
+
+        for (final c in _ceilingAzCtrls.values) { c.dispose(); }
+        for (final c in _ceilingElCtrls.values) { c.dispose(); }
+        _ceilingAzCtrls.clear();
+        _ceilingElCtrls.clear();
+        _ceilingAzErrors.clear();
+        _ceilingElErrors.clear();
+
+        sector.horizonPoints = List<Point>.from(data.horizon)..sort((a, b) => a.x.compareTo(b.x));
+        sector.ceilingPoints = List<Point>.from(data.ceiling)..sort((a, b) => a.x.compareTo(b.x));
+        _syncPointEditors();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sektor $selected importiert.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV Import fehlgeschlagen: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
+  }
+
+  Map<int, _CsvSectorData> _parseCsv(String content) {
+    final horizon = <int, List<Point>>{};
+    final ceiling = <int, List<Point>>{};
+
+    final lines = content.split(RegExp(r'\r?\n'));
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+
+      // Decide delimiter: prefer semicolon, then tab, then comma
+      List<String> parts;
+      if (line.contains(';')) {
+        parts = _splitLine(line, ';');
+      } else if (line.contains('\t')) {
+        parts = line.split('\t');
+      } else {
+        parts = _splitLine(line, ',');
+      }
+      if (parts.isEmpty) continue;
+
+      String c0 = parts.elementAt(0).trim().replaceAll('"', '');
+      final sectorNo = int.tryParse(c0);
+      if (sectorNo == null || sectorNo < 1 || sectorNo > 1024) {
+        // ignore non-sector lines (e.g., date headers)
+        continue;
+      }
+      String c1 = (parts.length > 1 ? parts[1] : '').trim().replaceAll('"', '');
+      final type = c1.toLowerCase();
+      final isHorizon = type == 'kurveunten';
+      final isCeiling = type == 'kurveoben';
+      if (!isHorizon && !isCeiling) {
+        // Ignore other rows (e.g., Ausrichtung)
+        continue;
+      }
+
+      String c2 = (parts.length > 2 ? parts[2] : '').trim().replaceAll('"', '');
+      String c3 = (parts.length > 3 ? parts[3] : '').trim().replaceAll('"', '');
+      final az = double.tryParse(c2.replaceAll(',', '.'));
+      final el = double.tryParse(c3.replaceAll(',', '.'));
+      if (az == null || el == null) continue;
+
+      final p = Point(x: az, y: el);
+      if (isHorizon) {
+        horizon.putIfAbsent(sectorNo, () => <Point>[]).add(p);
+      } else {
+        ceiling.putIfAbsent(sectorNo, () => <Point>[]).add(p);
+      }
+    }
+
+    final ids = <int>{...horizon.keys, ...ceiling.keys};
+    final out = <int, _CsvSectorData>{};
+    for (final id in ids) {
+      out[id] = _CsvSectorData(
+        horizon: horizon[id] ?? <Point>[],
+        ceiling: ceiling[id] ?? <Point>[],
+      );
+    }
+    return out;
+  }
+
+  // Simple CSV splitter handling quoted delimiters
+  List<String> _splitLine(String line, String sep) {
+    final result = <String>[];
+    var sb = StringBuffer();
+    bool inQuotes = false;
+    for (int i = 0; i < line.length; i++) {
+      final ch = line[i];
+      if (ch == '"') {
+        inQuotes = !inQuotes;
+      } else if (ch == sep && !inQuotes) {
+        result.add(sb.toString());
+        sb = StringBuffer();
+      } else {
+        sb.write(ch);
+      }
+    }
+    result.add(sb.toString());
+    return result;
+  }
+
+  Future<int?> _pickSectorFromCsv(List<int> sectorIds, Map<int, _CsvSectorData> data) async {
+    int selected = sectorIds.first;
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Sektor aus CSV wählen'),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  value: selected,
+                  items: sectorIds
+                      .map((id) => DropdownMenuItem<int>(
+                            value: id,
+                            child: Text('Sektor $id'),
+                          ))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      selected = v;
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(selected),
+              child: const Text('Importieren'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -853,11 +1074,15 @@ class _SectorWidgetState extends State<SectorWidget> {
                                             points: sector.horizonPoints,
                                             azCtrls: _horizonAzCtrls,
                                             elCtrls: _horizonElCtrls,
+                                            azErrors: _horizonAzErrors,
+                                            elErrors: _horizonElErrors,
                                             color: Colors.red.shade100,
                                             onRemove: (p) {
                                               setState(() {
                                                 _horizonAzCtrls.remove(p)?.dispose();
                                                 _horizonElCtrls.remove(p)?.dispose();
+                                                _horizonAzErrors.remove(p);
+                                                _horizonElErrors.remove(p);
                                                 sector.horizonPoints.remove(p);
                                               });
                                             },
@@ -866,6 +1091,8 @@ class _SectorWidgetState extends State<SectorWidget> {
                                                 sector.horizonPoints.sort((a, b) => a.x.compareTo(b.x));
                                               });
                                             },
+                                            onAzErrorChange: (p, err) => setState(() => _horizonAzErrors[p] = err),
+                                            onElErrorChange: (p, err) => setState(() => _horizonElErrors[p] = err),
                                           ),
                                           const Divider(height: 24),
                                           Row(
@@ -884,11 +1111,15 @@ class _SectorWidgetState extends State<SectorWidget> {
                                             points: sector.ceilingPoints,
                                             azCtrls: _ceilingAzCtrls,
                                             elCtrls: _ceilingElCtrls,
+                                            azErrors: _ceilingAzErrors,
+                                            elErrors: _ceilingElErrors,
                                             color: Colors.green.shade100,
                                             onRemove: (p) {
                                               setState(() {
                                                 _ceilingAzCtrls.remove(p)?.dispose();
                                                 _ceilingElCtrls.remove(p)?.dispose();
+                                                _ceilingAzErrors.remove(p);
+                                                _ceilingElErrors.remove(p);
                                                 sector.ceilingPoints.remove(p);
                                               });
                                             },
@@ -897,6 +1128,14 @@ class _SectorWidgetState extends State<SectorWidget> {
                                                 sector.ceilingPoints.sort((a, b) => a.x.compareTo(b.x));
                                               });
                                             },
+                                            onAzErrorChange: (p, err) => setState(() => _ceilingAzErrors[p] = err),
+                                            onElErrorChange: (p, err) => setState(() => _ceilingElErrors[p] = err),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          TextButton.icon(
+                                            onPressed: _isImporting ? null : _importCsv,
+                                            icon: const Icon(Icons.upload_file),
+                                            label: Text(_isImporting ? 'Importiert…' : 'CSV importieren'),
                                           ),
                                         ],
                                       ),
@@ -921,7 +1160,7 @@ class _SectorWidgetState extends State<SectorWidget> {
                                             return touchedSpots.map((LineBarSpot touchedSpot) {
                                                 final az = touchedSpot.x;
                                                 final el = touchedSpot.y;
-                                              if (touchedSpot.barIndex != 5) {
+                                              if (touchedSpot.barIndex < 3) {
                                                 final hour = touchedSpot.spotIndex ~/ 60;
                                                 final min = touchedSpot.spotIndex % 60;
                                                 return LineTooltipItem(
@@ -960,7 +1199,16 @@ class _SectorWidgetState extends State<SectorWidget> {
                                           ),
                                         ),
                                         leftTitles: AxisTitles(
-                                          sideTitles: SideTitles(showTitles: true),
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 30,
+                                          ),
+                                        ),
+                                        rightTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 30,
+                                          ),
                                         ),
                                       ),
                                       lineBarsData: [
@@ -1043,9 +1291,13 @@ String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1);
     required List<Point> points,
     required Map<Point, TextEditingController> azCtrls,
     required Map<Point, TextEditingController> elCtrls,
+    required Map<Point, String?> azErrors,
+    required Map<Point, String?> elErrors,
     required Color color,
     required void Function(Point) onRemove,
     required void Function(Point) onChanged,
+    required void Function(Point, String?) onAzErrorChange,
+    required void Function(Point, String?) onElErrorChange,
   }) {
     // Headers + rows
     return Column(
@@ -1084,20 +1336,24 @@ String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1);
                   width: 120,
                   child: TextField(
                     controller: azCtrl,
-                    decoration: const InputDecoration(isDense: true, hintText: '-90 .. 90'),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '-90 .. 90',
+                      errorText: azErrors[p],
+                    ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                     onChanged: (v) {
                       final parsed = double.tryParse(v.replaceAll(',', '.'));
-                      if (parsed == null) return; // keep last valid
-                      var clamped = parsed.clamp(-90, 90).toDouble();
-                      if (clamped != parsed) {
-                        final txt = _fmt(clamped);
-                        azCtrl.value = TextEditingValue(
-                          text: txt,
-                          selection: TextSelection.collapsed(offset: txt.length),
-                        );
+                      if (parsed == null) {
+                        onAzErrorChange(p, 'Zahl eingeben');
+                        return;
                       }
-                      p.x = clamped;
+                      if (parsed < -90 || parsed > 90) {
+                        onAzErrorChange(p, '-90..90°');
+                        return;
+                      }
+                      onAzErrorChange(p, null);
+                      p.x = parsed;
                       onChanged(p);
                     },
                   ),
@@ -1107,20 +1363,24 @@ String _fmt(double v) => v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1);
                   width: 120,
                   child: TextField(
                     controller: elCtrl,
-                    decoration: const InputDecoration(isDense: true, hintText: '0 .. 90'),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '0 .. 90',
+                      errorText: elErrors[p],
+                    ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
                     onChanged: (v) {
                       final parsed = double.tryParse(v.replaceAll(',', '.'));
-                      if (parsed == null) return;
-                      var clamped = parsed.clamp(0, 90).toDouble();
-                      if (clamped != parsed) {
-                        final txt = _fmt(clamped);
-                        elCtrl.value = TextEditingValue(
-                          text: txt,
-                          selection: TextSelection.collapsed(offset: txt.length),
-                        );
+                      if (parsed == null) {
+                        onElErrorChange(p, 'Zahl eingeben');
+                        return;
                       }
-                      p.y = clamped;
+                      if (parsed < 0 || parsed > 90) {
+                        onElErrorChange(p, '0..90°');
+                        return;
+                      }
+                      onElErrorChange(p, null);
+                      p.y = parsed;
                       onChanged(p);
                     },
                   ),
