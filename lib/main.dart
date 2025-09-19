@@ -27,6 +27,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Konfigurator',
+      restorationScopeId: "Test",
       // Force German UI for built-in widgets (e.g., pickers)
       locale: const Locale('de'),
       supportedLocales: const [Locale('de')],
@@ -141,6 +142,11 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: _createProject,
               child: const Text('Projekt erstellen'),
             ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: null,
+              child: const Text('mit Staerium-Server verbinden (demnächst)'),
+            ),
           ],
         ),
       ),
@@ -149,7 +155,7 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class ConfigScreen extends StatefulWidget {
-  const ConfigScreen({Key? key, this.initialXmlContent}) : super(key: key);
+  const ConfigScreen({super.key, this.initialXmlContent});
 
   final String? initialXmlContent;
 
@@ -495,9 +501,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
       final bytes = utf8.encode(xmlString);
       final blob = html.Blob([bytes], 'text/xml');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', 'konfiguration.sunproj')
-        ..click();
+      //final anchor = html.AnchorElement(href: url)
+      //  ..setAttribute('download', 'konfiguration.sunproj')
+      //  ..click();
       html.Url.revokeObjectUrl(url);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
