@@ -1277,19 +1277,3 @@ class _ConfigScreenState extends State<ConfigScreen> {
     );
   }
 }
-
-// Data models and helper widgets (to be implemented)
-
-
-
-class Threshold {
-  // TODO: define fields for address, DPT, thresholds, delays, dynamic
-}
-
-class Release {
-  // TODO: define fields for group address and value
-}
-
-class Override {
-  // TODO: define fields for group address and value
-}
