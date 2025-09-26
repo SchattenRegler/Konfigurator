@@ -73,7 +73,13 @@ jobs:
       # Web nur einmal auf Linux bauen (spart Zeit/Runner-Minuten)
       - name: Build Web (Linux only)
         if: runner.os == 'Linux'
-        run: flutter build web --release
+        run: flutter build web --release --base-href /
+
+      - name: Upload GitHub Pages artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
 
       - name: Upload GitHub Pages artifact
         if: runner.os == 'Linux'
