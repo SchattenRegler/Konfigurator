@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write   # nötig für Release erstellen
+  pages: write      # nötig für GitHub Pages Deployment
+  id-token: write   # nötig für GitHub Pages Deployment
 
 jobs:
   build:
@@ -72,6 +74,12 @@ jobs:
       - name: Build Web (Linux only)
         if: runner.os == 'Linux'
         run: flutter build web --release
+
+      - name: Upload GitHub Pages artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
 
       - name: Build Linux
         if: runner.os == 'Linux'
@@ -171,3 +179,19 @@ jobs:
             dist/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    name: Deploy GitHub Pages (main branch)
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
