@@ -6,7 +6,7 @@ import 'package:uuid/uuid.dart';
 double latitude = 0;
 double longitude = 0;
 
-String version = '';
+String version = '0.8.0';
 String brightnessAddress = '';
 String irradianceAddress = '';
 
@@ -19,12 +19,10 @@ String elevationAddress = '';
 // Threshold linkage
 bool linkBrightnessIrradiance = false;
 
-
 List<Sector> sectors = [];
 
 // Weekly time switch programs
 List<TimeProgram> timePrograms = [];
-
 
 class Sector {
   String guid;
@@ -37,7 +35,13 @@ class Sector {
   bool louvreTracking;
   double louvreSpacing;
   double louvreDepth;
+  double louvreAngleAtZero;
+  double louvreAngleAtHundred;
+  double louvreMinimumChange;
+  double louvreBuffer;
   String brightnessAddress;
+  String louvreAngleAddress;
+  String sunBoolAddress;
   bool useBrightness;
   bool useIrradiance;
   int? brightnessUpperThreshold;
@@ -67,15 +71,21 @@ class Sector {
     this.louvreTracking = false,
     this.louvreSpacing = 0,
     this.louvreDepth = 0,
+    this.louvreAngleAtZero = 90,
+    this.louvreAngleAtHundred = 0,
+    this.louvreMinimumChange = 20,
+    this.louvreBuffer = 5,
     this.brightnessAddress = '',
+    this.louvreAngleAddress = '',
+    this.sunBoolAddress = '',
     this.irradianceAddress = '',
     this.brightnessIrradianceLink = 'Und',
     this.facadeAddress = '',
     this.facadeStart,
     this.facadeEnd,
-  })  : guid = guid ?? const Uuid().v4(),
-        horizonPoints = horizonPoints ?? [],
-        ceilingPoints = ceilingPoints ?? [] {
+  }) : guid = guid ?? const Uuid().v4(),
+       horizonPoints = horizonPoints ?? [],
+       ceilingPoints = ceilingPoints ?? [] {
     nameNotifier = ValueNotifier<String>(name);
   }
 

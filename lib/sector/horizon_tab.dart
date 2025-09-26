@@ -11,7 +11,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
           children: [
             ElevatedButton(
               onPressed: () {
-                setState(() {
+                _mutate(() {
                   _selectedDate = DateTime.now();
                 });
               },
@@ -26,7 +26,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                   lastDate: DateTime(2100),
                 );
                 if (picked != null) {
-                  setState(() {
+                  _mutate(() {
                     _selectedDate = picked;
                   });
                 }
@@ -98,7 +98,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                               elErrors: _horizonElErrors,
                               color: Colors.red.shade100,
                               onRemove: (p) {
-                                setState(() {
+                                _mutate(() {
                                   _horizonAzCtrls.remove(p)?.dispose();
                                   _horizonElCtrls.remove(p)?.dispose();
                                   _horizonAzErrors.remove(p);
@@ -107,16 +107,16 @@ extension _HorizonLimitTab on _SectorWidgetState {
                                 });
                               },
                               onChanged: (p) {
-                                setState(() {
+                                _mutate(() {
                                   sector.horizonPoints.sort(
                                     (a, b) => a.x.compareTo(b.x),
                                   );
                                 });
                               },
                               onAzErrorChange: (p, err) =>
-                                  setState(() => _horizonAzErrors[p] = err),
+                                  _mutate(() => _horizonAzErrors[p] = err),
                               onElErrorChange: (p, err) =>
-                                  setState(() => _horizonElErrors[p] = err),
+                                  _mutate(() => _horizonElErrors[p] = err),
                             ),
                             const Divider(height: 24),
                             Row(
@@ -142,7 +142,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                               elErrors: _ceilingElErrors,
                               color: Colors.green.shade100,
                               onRemove: (p) {
-                                setState(() {
+                                _mutate(() {
                                   _ceilingAzCtrls.remove(p)?.dispose();
                                   _ceilingElCtrls.remove(p)?.dispose();
                                   _ceilingAzErrors.remove(p);
@@ -151,16 +151,16 @@ extension _HorizonLimitTab on _SectorWidgetState {
                                 });
                               },
                               onChanged: (p) {
-                                setState(() {
+                                _mutate(() {
                                   sector.ceilingPoints.sort(
                                     (a, b) => a.x.compareTo(b.x),
                                   );
                                 });
                               },
                               onAzErrorChange: (p, err) =>
-                                  setState(() => _ceilingAzErrors[p] = err),
+                                  _mutate(() => _ceilingAzErrors[p] = err),
                               onElErrorChange: (p, err) =>
-                                  setState(() => _ceilingElErrors[p] = err),
+                                  _mutate(() => _ceilingElErrors[p] = err),
                             ),
                             const SizedBox(height: 16),
                             TextButton.icon(

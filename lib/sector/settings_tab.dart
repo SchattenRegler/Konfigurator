@@ -42,12 +42,12 @@ extension _SettingsTab on _SectorWidgetState {
                   onChanged: (v) {
                     final val = double.tryParse(v);
                     if (val == null || val < -180 || val > 180) {
-                      setState(() {
+                      _mutate(() {
                         _orientationError =
                             'Bitte Wert zwischen -180 und 180 eingeben';
                       });
                     } else {
-                      setState(() {
+                      _mutate(() {
                         _orientationError = null;
                         sector.orientation = val;
                       });
@@ -68,7 +68,7 @@ extension _SettingsTab on _SectorWidgetState {
                     ),
                   );
                   if (result != null) {
-                    setState(() {
+                    _mutate(() {
                       sector.facadeStart = result['start'];
                       sector.facadeEnd = result['end'];
                       // Calculate geodetic bearing between two coordinates
@@ -102,7 +102,7 @@ extension _SettingsTab on _SectorWidgetState {
             title: const Text('Helligkeit verwenden'),
             value: sector.useBrightness,
             onChanged: sector.useIrradiance
-                ? (v) => setState(() {
+                ? (v) => _mutate(() {
                     sector.useBrightness = v;
                   })
                 : null,
@@ -112,7 +112,7 @@ extension _SettingsTab on _SectorWidgetState {
             title: const Text('Globalstrahlung verwenden'),
             value: sector.useIrradiance,
             onChanged: sector.useBrightness
-                ? (v) => setState(() {
+                ? (v) => _mutate(() {
                     sector.useIrradiance = v;
                   })
                 : null,
@@ -128,7 +128,7 @@ extension _SettingsTab on _SectorWidgetState {
                 errorText: _brightnessAddressError,
               ),
               onChanged: (v) {
-                setState(() {
+                _mutate(() {
                   sector.brightnessAddress = v;
                   final parts = v.split('/');
                   final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
@@ -156,7 +156,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useBrightness) const SizedBox(height: 16),
           if (sector.useBrightness)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.brightnessUpperThreshold?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Helligkeitsschwellwert Dunkel --> Hell',
                 suffixText: 'Lux',
@@ -165,12 +165,12 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _brightnessUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _brightnessUpperThresholdError = null;
                     sector.brightnessUpperThreshold = val;
                   });
@@ -180,7 +180,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useBrightness) const SizedBox(height: 16),
           if (sector.useBrightness)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.brightnessUpperDelay?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Verzögerungszeit Dunkel --> Hell',
                 suffixText: 's',
@@ -189,11 +189,11 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _brightnessUpperDelayError = 'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _brightnessUpperDelayError = null;
                     sector.brightnessUpperDelay = val;
                   });
@@ -203,7 +203,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useBrightness) const SizedBox(height: 16),
           if (sector.useBrightness)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.brightnessLowerThreshold?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Helligkeitsschwellwert Hell --> Dunkel',
                 suffixText: 'Lux',
@@ -212,12 +212,12 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _brightnessLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _brightnessLowerThresholdError = null;
                     sector.brightnessLowerThreshold = val;
                   });
@@ -227,7 +227,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useBrightness) const SizedBox(height: 16),
           if (sector.useBrightness)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.brightnessLowerDelay?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Verzögerungszeit Hell --> Dunkel',
                 suffixText: 's',
@@ -236,11 +236,11 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _brightnessLowerDelayError = 'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _brightnessLowerDelayError = null;
                     sector.brightnessLowerDelay = val;
                   });
@@ -258,7 +258,7 @@ extension _SettingsTab on _SectorWidgetState {
                 errorText: _irradianceAddressError,
               ),
               onChanged: (v) {
-                setState(() {
+                _mutate(() {
                   sector.irradianceAddress = v;
                   final parts = v.split('/');
                   final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
@@ -286,7 +286,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useIrradiance) const SizedBox(height: 16),
           if (sector.useIrradiance)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.irradianceUpperThreshold?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Globalstrahlungsschwellwert Tief --> Hoch',
                 suffixText: 'Lux',
@@ -295,12 +295,12 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _irradianceUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _irradianceUpperThresholdError = null;
                     sector.irradianceUpperThreshold = val;
                   });
@@ -310,7 +310,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useIrradiance) const SizedBox(height: 16),
           if (sector.useIrradiance)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.irradianceUpperDelay?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Verzögerungszeit Tief --> Hoch',
                 suffixText: 's',
@@ -319,11 +319,11 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _irradianceUpperDelayError = 'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _irradianceUpperDelayError = null;
                     sector.irradianceUpperDelay = val;
                   });
@@ -333,7 +333,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useIrradiance) const SizedBox(height: 16),
           if (sector.useIrradiance)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.irradianceLowerThreshold?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Globalstrahlungsschwellwert Hoch --> Tief',
                 suffixText: 'Lux',
@@ -342,12 +342,12 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _irradianceLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _irradianceLowerThresholdError = null;
                     sector.irradianceLowerThreshold = val;
                   });
@@ -357,7 +357,7 @@ extension _SettingsTab on _SectorWidgetState {
           if (sector.useIrradiance) const SizedBox(height: 16),
           if (sector.useIrradiance)
             TextFormField(
-              initialValue: '',
+              initialValue: sector.irradianceLowerDelay?.toString() ?? '',
               decoration: InputDecoration(
                 labelText: 'Verzögerungszeit Hoch --> Tief',
                 suffixText: 's',
@@ -366,11 +366,11 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (v) {
                 final val = int.tryParse(v);
                 if (val == null || val < 0) {
-                  setState(() {
+                  _mutate(() {
                     _irradianceLowerDelayError = 'Bitte gültigen Wert eingeben';
                   });
                 } else {
-                  setState(() {
+                  _mutate(() {
                     _irradianceLowerDelayError = null;
                     sector.irradianceLowerDelay = val;
                   });
@@ -391,7 +391,7 @@ extension _SettingsTab on _SectorWidgetState {
               ],
               onChanged: (v) {
                 if (v == null) return;
-                setState(() {
+                _mutate(() {
                   sector.brightnessIrradianceLink = v;
                 });
               },
@@ -401,16 +401,84 @@ extension _SettingsTab on _SectorWidgetState {
           SwitchListTile(
             title: const Text('Lamellennachführung'),
             value: sector.louvreTracking,
-            onChanged: (v) => setState(() {
+            onChanged: (v) => _mutate(() {
               sector.louvreTracking = v;
             }),
           ),
           SwitchListTile(
             title: const Text('Horizontbegrenzung'),
             value: sector.horizonLimit,
-            onChanged: (v) => setState(() {
+            onChanged: (v) => _mutate(() {
               sector.horizonLimit = v;
             }),
+          ),
+          if (sector.useBrightness && sector.louvreTracking)
+            const SizedBox(height: 16),
+          if (sector.useBrightness && sector.louvreTracking)
+            TextFormField(
+              initialValue: sector.louvreAngleAddress,
+              decoration: InputDecoration(
+                labelText: 'Gruppenadresse Winkel',
+                errorText: _louvreAngleAddressError,
+              ),
+              onChanged: (v) {
+                _mutate(() {
+                  sector.louvreAngleAddress = v;
+                  final parts = v.split('/');
+                  final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+                  final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+                  final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+                  if (parts.length != 3 ||
+                      a == null ||
+                      a < 0 ||
+                      a > 31 ||
+                      b == null ||
+                      b < 0 ||
+                      b > 7 ||
+                      c == null ||
+                      c < 0 ||
+                      c > 255 ||
+                      (a == 0 && b == 0 && c == 0)) {
+                    _louvreAngleAddressError =
+                        'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+                  } else {
+                    _louvreAngleAddressError = null;
+                  }
+                });
+              },
+            ),
+          const SizedBox(height: 16),
+          TextFormField(
+            initialValue: sector.sunBoolAddress,
+            decoration: InputDecoration(
+              labelText: 'Gruppenadresse Sonne',
+              errorText: _sunBoolAddressError,
+            ),
+            onChanged: (v) {
+              _mutate(() {
+                sector.sunBoolAddress = v;
+                final parts = v.split('/');
+                final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+                final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+                final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+                if (parts.length != 3 ||
+                    a == null ||
+                    a < 0 ||
+                    a > 31 ||
+                    b == null ||
+                    b < 0 ||
+                    b > 7 ||
+                    c == null ||
+                    c < 0 ||
+                    c > 255 ||
+                    (a == 0 && b == 0 && c == 0)) {
+                  _sunBoolAddressError =
+                      'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+                } else {
+                  _sunBoolAddressError = null;
+                }
+              });
+            },
           ),
           const SizedBox(height: 24),
           // Remove button (match time program delete style)

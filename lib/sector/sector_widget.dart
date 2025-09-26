@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:solar_calculator/solar_calculator.dart';
 
@@ -60,6 +61,13 @@ class _SectorWidgetState extends State<SectorWidget> {
   String? _irradianceUpperDelayError;
   String? _irradianceLowerThresholdError;
   String? _irradianceLowerDelayError;
+  String? _louvreAngleZeroError;
+  String? _louvreAngleHundredError;
+  String? _louvreAngleAddressError;
+  String? _louvreMinimumChangeError;
+  String? _louvreBufferError;
+  String? _sunBoolAddressError;
+  double _louvrePreviewPercent = 0;
 
   // CSV import state
   bool _isImporting = false;
@@ -122,6 +130,8 @@ class _SectorWidgetState extends State<SectorWidget> {
       );
     }
   }
+
+  void _mutate(VoidCallback update) => setState(update);
 
   void _addHorizonPoint() {
     setState(() {
