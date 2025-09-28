@@ -60,13 +60,47 @@ class TimeProgram {
 class TimeProgramWidget extends StatefulWidget {
   final TimeProgram program;
   final VoidCallback onRemove;
-  const TimeProgramWidget({super.key, required this.program, required this.onRemove});
+  final VoidCallback onChanged;
+  const TimeProgramWidget({
+    super.key,
+    required this.program,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<TimeProgramWidget> createState() => _TimeProgramWidgetState();
 }
 
 class _TimeProgramWidgetState extends State<TimeProgramWidget> {
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(fn);
+    widget.onChanged();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.program.nameNotifier.addListener(widget.onChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant TimeProgramWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.program != widget.program) {
+      oldWidget.program.nameNotifier.removeListener(widget.onChanged);
+      widget.program.nameNotifier.addListener(widget.onChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.program.nameNotifier.removeListener(widget.onChanged);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -86,7 +120,9 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               return TextFormField(
                 initialValue: name,
                 decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: (v) => widget.program.name = v,
+                onChanged: (v) {
+                  widget.program.name = v;
+                },
               );
             },
           ),
@@ -123,6 +159,7 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               key: ObjectKey(widget.program.commands[i]),
               command: widget.program.commands[i],
               onRemove: () => setState(() => widget.program.commands.removeAt(i)),
+              onChanged: widget.onChanged,
             ),
           const SizedBox(height: 16),
           Align(
@@ -142,7 +179,13 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
 class _CommandCard extends StatefulWidget {
   final TimeCommand command;
   final VoidCallback onRemove;
-  const _CommandCard({super.key, required this.command, required this.onRemove});
+  final VoidCallback onChanged;
+  const _CommandCard({
+    super.key,
+    required this.command,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<_CommandCard> createState() => _CommandCardState();
@@ -162,6 +205,13 @@ class _CommandCardState extends State<_CommandCard> {
     _byteError = null;
     _gaError = widget.command.groupAddress.isEmpty ? null : validateGroupAddress(widget.command.groupAddress);
     _gaController = TextEditingController(text: widget.command.groupAddress);
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(fn);
+    widget.onChanged();
   }
 
   @override
@@ -214,7 +264,10 @@ class _CommandCardState extends State<_CommandCard> {
                     const SizedBox(width: 12),
                     _TimeField(
                       initial: c.time,
-                      onChanged: (v) => c.time = v,
+                      onChanged: (v) {
+                        c.time = v;
+                        widget.onChanged();
+                      },
                     ),
                   ],
                 ),

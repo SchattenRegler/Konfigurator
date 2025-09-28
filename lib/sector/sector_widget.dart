@@ -25,7 +25,13 @@ class _CsvSectorData {
 class SectorWidget extends StatefulWidget {
   final Sector sector;
   final VoidCallback onRemove;
-  const SectorWidget({super.key, required this.sector, required this.onRemove});
+  final VoidCallback onChanged;
+  const SectorWidget({
+    super.key,
+    required this.sector,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<SectorWidget> createState() => _SectorWidgetState();
@@ -73,6 +79,13 @@ class _SectorWidgetState extends State<SectorWidget> {
   bool _isImporting = false;
 
   @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(fn);
+    widget.onChanged();
+  }
+
+  @override
   void initState() {
     super.initState();
     _orientationController = TextEditingController(
@@ -83,10 +96,23 @@ class _SectorWidgetState extends State<SectorWidget> {
     _ceilingAzController = TextEditingController();
     _ceilingElController = TextEditingController();
     _syncPointEditors();
+    sector.nameNotifier.addListener(widget.onChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant SectorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sector != widget.sector) {
+      oldWidget.sector.nameNotifier.removeListener(widget.onChanged);
+      sector.nameNotifier.addListener(widget.onChanged);
+      _orientationController.text = sector.orientation.toStringAsFixed(1);
+      _syncPointEditors();
+    }
   }
 
   @override
   void dispose() {
+    sector.nameNotifier.removeListener(widget.onChanged);
     _orientationController.dispose();
     _horizonAzController.dispose();
     _horizonElController.dispose();

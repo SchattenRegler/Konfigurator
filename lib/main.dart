@@ -14,6 +14,7 @@ import 'location_dialog.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
+import 'undo_manager.dart';
 
 void main() {
   runApp(const MyApp());
@@ -171,6 +172,14 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
@@ -178,6 +187,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  final UndoRedoManager _undoRedoManager = UndoRedoManager();
+  Timer? _undoDebounce;
+  bool _isRestoringFromHistory = false;
   // --- XML Parsing ---
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
@@ -463,12 +475,57 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lngController = TextEditingController();
 
-  void _loadXmlContent(String content, {bool showSuccess = true}) {
-    fromXml(content);
+  void _loadXmlContent(
+    String content, {
+    bool showSuccess = true,
+    bool addToHistory = true,
+  }) {
+    _undoDebounce?.cancel();
+    _undoRedoManager.isApplying = true;
+    try {
+      fromXml(content);
+    } finally {
+      _undoRedoManager.isApplying = false;
+    }
+    if (addToHistory) {
+      _formKey.currentState?.save();
+      final normalized = toXml();
+      _undoRedoManager.initialize(normalized);
+    }
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Konfiguration geladen.')));
+    }
+  }
+
+  void _notifyConfigurationChanged({bool immediate = false}) {
+    if (!mounted || _undoRedoManager.isApplying) return;
+    _undoDebounce?.cancel();
+    void capture() {
+      _formKey.currentState?.save();
+      final xmlString = toXml();
+      _undoRedoManager.capture(xmlString);
+    }
+
+    if (immediate) {
+      capture();
+    } else {
+      _undoDebounce = Timer(const Duration(milliseconds: 400), capture);
+    }
+  }
+
+  void _performUndo() {
+    final previous = _undoRedoManager.undo();
+    if (previous != null) {
+      _loadXmlContent(previous, showSuccess: false, addToHistory: false);
+    }
+  }
+
+  void _performRedo() {
+    final next = _undoRedoManager.redo();
+    if (next != null) {
+      _loadXmlContent(next, showSuccess: false, addToHistory: false);
     }
   }
 
@@ -479,6 +536,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
         final isS = key == 's' || e.code == 'KeyS';
+        final isZ = key == 'z' || e.code == 'KeyZ';
         if ((e.ctrlKey || e.metaKey) && isS) {
           // Stop the browser from opening its own save dialog
           e.preventDefault();
@@ -487,6 +545,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
             _saveAsXml();
           } else {
             _saveXml();
+          }
+        } else if ((e.ctrlKey || e.metaKey) && isZ) {
+          e.preventDefault();
+          js_util.callMethod(e, 'stopImmediatePropagation', []);
+          if (e.shiftKey) {
+            _performRedo();
+          } else {
+            _performUndo();
           }
         }
       });
@@ -499,12 +565,21 @@ class _ConfigScreenState extends State<ConfigScreen> {
           _loadXmlContent(initialContent);
         }
       });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_undoRedoManager.hasEntries) {
+          _formKey.currentState?.save();
+          final xmlString = toXml();
+          _undoRedoManager.initialize(xmlString);
+        }
+      });
     }
   }
 
   @override
   void dispose() {
     _keyDownSub?.cancel();
+    _undoDebounce?.cancel();
     super.dispose();
   }
 
@@ -875,6 +950,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         latitude = picked.latitude;
         longitude = picked.longitude;
       });
+      _notifyConfigurationChanged(immediate: true);
     }
   }
 
@@ -897,6 +973,13 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   labelText: 'Breitengrad (Lat)',
                 ),
                 onSaved: (v) => latitude = double.tryParse(v ?? '') ?? 0,
+                onChanged: (value) {
+                  final parsed = double.tryParse(value);
+                  if (parsed != null) {
+                    latitude = parsed;
+                  }
+                  _notifyConfigurationChanged();
+                },
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
                 ],
@@ -912,6 +995,13 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 ),
                 decoration: const InputDecoration(labelText: 'Längengrad'),
                 onSaved: (v) => longitude = double.tryParse(v ?? '') ?? 0,
+                onChanged: (value) {
+                  final parsed = double.tryParse(value);
+                  if (parsed != null) {
+                    longitude = parsed;
+                  }
+                  _notifyConfigurationChanged();
+                },
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
                 ],
@@ -1004,6 +1094,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       editingSectorIndex = sectors.length - 1;
                       editingTimerIndex = null;
                     });
+                    _notifyConfigurationChanged(immediate: true);
                   },
                 ),
                 ListTile(
@@ -1043,6 +1134,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             editingSectorIndex = sectors.length - 1;
                             editingTimerIndex = null;
                           });
+                          _notifyConfigurationChanged(immediate: true);
                         }
                       : null,
                 ),
@@ -1096,6 +1188,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       editingTimerIndex = timePrograms.length - 1;
                       editingSectorIndex = null;
                     });
+                    _notifyConfigurationChanged(immediate: true);
                   },
                 ),
                 ListTile(
@@ -1125,6 +1218,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             editingTimerIndex = timePrograms.length - 1;
                             editingSectorIndex = null;
                           });
+                          _notifyConfigurationChanged(immediate: true);
                         }
                       : null,
                 ),
@@ -1142,11 +1236,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+            const RedoIntent(),
         // macOS: ⌘S / ⌘⇧S
         SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true): const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+            const RedoIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1159,6 +1260,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
           SaveAsIntent: CallbackAction<SaveAsIntent>(
             onInvoke: (intent) {
               _saveAsXml();
+              return null;
+            },
+          ),
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (intent) {
+              _performUndo();
+              return null;
+            },
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (intent) {
+              _performRedo();
               return null;
             },
           ),
@@ -1270,6 +1383,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   editingSectorIndex = sectors.length - 1;
                                   editingTimerIndex = null;
                                 });
+                                _notifyConfigurationChanged(immediate: true);
                               },
                             ),
                             ListTile(
@@ -1322,6 +1436,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         editingSectorIndex = sectors.length - 1;
                                         editingTimerIndex = null;
                                       });
+                                      _notifyConfigurationChanged(immediate: true);
                                     }
                                   : null,
                             ),
@@ -1385,6 +1500,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   editingTimerIndex = timePrograms.length - 1;
                                   editingSectorIndex = null;
                                 });
+                                _notifyConfigurationChanged(immediate: true);
                               },
                             ),
                             ListTile(
@@ -1420,6 +1536,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             timePrograms.length - 1;
                                         editingSectorIndex = null;
                                       });
+                                      _notifyConfigurationChanged(
+                                          immediate: true);
                                     }
                                   : null,
                             ),
@@ -1437,10 +1555,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             ? SectorWidget(
                                 key: ValueKey(editingSectorIndex),
                                 sector: sectors[editingSectorIndex!],
-                                onRemove: () => setState(() {
-                                  sectors.removeAt(editingSectorIndex!);
-                                  editingSectorIndex = null;
-                                }),
+                                onRemove: () {
+                                  setState(() {
+                                    sectors.removeAt(editingSectorIndex!);
+                                    editingSectorIndex = null;
+                                  });
+                                  _notifyConfigurationChanged(
+                                      immediate: true);
+                                },
+                                onChanged: _notifyConfigurationChanged,
                               )
                             : selectedPage == 'Allgemein'
                             ? Form(
@@ -1487,8 +1610,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             ),
                                           ),
                                         ],
-                                        onChanged: (v) =>
-                                            setState(() => azElOption = v!),
+                                        onChanged: (v) {
+                                          if (v == null) return;
+                                          setState(() => azElOption = v);
+                                          _notifyConfigurationChanged();
+                                        },
                                       ),
                                       if (azElOption == 'BusTime') ...[
                                         const SizedBox(height: 8),
@@ -1497,6 +1623,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             labelText: 'Gruppenadresse Zeit',
                                           ),
                                           onSaved: (v) => timeAddress = v ?? '',
+                                          onChanged: (v) {
+                                            timeAddress = v;
+                                            _notifyConfigurationChanged();
+                                          },
                                         ),
                                       ],
                                       if (azElOption == 'BusAzEl') ...[
@@ -1507,6 +1637,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                           ),
                                           onSaved: (v) =>
                                               azimuthAddress = v ?? '',
+                                          onChanged: (v) {
+                                            azimuthAddress = v;
+                                            _notifyConfigurationChanged();
+                                          },
                                         ),
                                         const SizedBox(height: 8),
                                         TextFormField(
@@ -1516,6 +1650,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                           ),
                                           onSaved: (v) =>
                                               elevationAddress = v ?? '',
+                                          onChanged: (v) {
+                                            elevationAddress = v;
+                                            _notifyConfigurationChanged();
+                                          },
                                         ),
                                       ],
                                     ],
@@ -1541,9 +1679,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.add),
-                                          onPressed: () => setState(
-                                            () => sectors.add(Sector()),
-                                          ),
+                                          onPressed: () {
+                                            setState(() => sectors.add(Sector()));
+                                            _notifyConfigurationChanged(
+                                                immediate: true);
+                                          },
                                         ),
                                       ],
                                     ),
@@ -1551,8 +1691,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       SectorWidget(
                                         key: ValueKey(i),
                                         sector: sectors[i],
-                                        onRemove: () =>
-                                            setState(() => sectors.removeAt(i)),
+                                        onRemove: () {
+                                          setState(() => sectors.removeAt(i));
+                                          _notifyConfigurationChanged(
+                                              immediate: true);
+                                        },
+                                        onChanged: _notifyConfigurationChanged,
                                       ),
                                   ],
                                 ),
@@ -1562,12 +1706,17 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   ? TimeProgramWidget(
                                       key: ValueKey('tp_$editingTimerIndex'),
                                       program: timePrograms[editingTimerIndex!],
-                                      onRemove: () => setState(() {
-                                        timePrograms.removeAt(
-                                          editingTimerIndex!,
-                                        );
-                                        editingTimerIndex = null;
-                                      }),
+                                      onRemove: () {
+                                        setState(() {
+                                          timePrograms.removeAt(
+                                            editingTimerIndex!,
+                                          );
+                                          editingTimerIndex = null;
+                                        });
+                                        _notifyConfigurationChanged(
+                                            immediate: true);
+                                      },
+                                      onChanged: _notifyConfigurationChanged,
                                     )
                                   : Center(
                                       child: Padding(
@@ -1621,7 +1770,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 ),
                               ),
                             ],
-                            onChanged: (v) => setState(() => azElOption = v!),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => azElOption = v);
+                              _notifyConfigurationChanged();
+                            },
                           ),
                           if (azElOption == 'BusTime') ...[
                             const SizedBox(height: 8),
@@ -1630,6 +1783,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 labelText: 'Gruppenadresse Zeit',
                               ),
                               onSaved: (v) => timeAddress = v ?? '',
+                              onChanged: (v) {
+                                timeAddress = v;
+                                _notifyConfigurationChanged();
+                              },
                             ),
                           ],
                           if (azElOption == 'BusAzEl') ...[
@@ -1639,6 +1796,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 labelText: 'Gruppenadresse Azimut',
                               ),
                               onSaved: (v) => azimuthAddress = v ?? '',
+                              onChanged: (v) {
+                                azimuthAddress = v;
+                                _notifyConfigurationChanged();
+                              },
                             ),
                             const SizedBox(height: 8),
                             TextFormField(
@@ -1646,6 +1807,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 labelText: 'Gruppenadresse Elevation',
                               ),
                               onSaved: (v) => elevationAddress = v ?? '',
+                              onChanged: (v) {
+                                elevationAddress = v;
+                                _notifyConfigurationChanged();
+                              },
                             ),
                           ],
                         ],
@@ -1657,10 +1822,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? SectorWidget(
                           key: ValueKey(editingSectorIndex),
                           sector: sectors[editingSectorIndex!],
-                          onRemove: () => setState(() {
-                            sectors.removeAt(editingSectorIndex!);
-                            editingSectorIndex = null;
-                          }),
+                          onRemove: () {
+                            setState(() {
+                              sectors.removeAt(editingSectorIndex!);
+                              editingSectorIndex = null;
+                            });
+                            _notifyConfigurationChanged(immediate: true);
+                          },
+                          onChanged: _notifyConfigurationChanged,
                         )
                       : Center(
                           child: Padding(
@@ -1672,10 +1841,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? TimeProgramWidget(
                           key: ValueKey('tp_m_$editingTimerIndex'),
                           program: timePrograms[editingTimerIndex!],
-                          onRemove: () => setState(() {
-                            timePrograms.removeAt(editingTimerIndex!);
-                            editingTimerIndex = null;
-                          }),
+                          onRemove: () {
+                            setState(() {
+                              timePrograms.removeAt(editingTimerIndex!);
+                              editingTimerIndex = null;
+                            });
+                            _notifyConfigurationChanged(immediate: true);
+                          },
+                          onChanged: _notifyConfigurationChanged,
                         )
                       : Center(
                           child: Padding(
