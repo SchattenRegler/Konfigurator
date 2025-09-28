@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+import 'history.dart';
+
 enum CommandType { oneBit, oneByte }
 
 String? validateGroupAddress(String v) {
@@ -54,7 +56,13 @@ class TimeProgram {
   }
 
   String get name => nameNotifier.value;
-  set name(String value) => nameNotifier.value = value;
+  set name(String value) {
+    if (nameNotifier.value == value) {
+      return;
+    }
+    nameNotifier.value = value;
+    HistoryBinding.requestCapture();
+  }
 }
 
 class TimeProgramWidget extends StatefulWidget {
@@ -66,7 +74,8 @@ class TimeProgramWidget extends StatefulWidget {
   State<TimeProgramWidget> createState() => _TimeProgramWidgetState();
 }
 
-class _TimeProgramWidgetState extends State<TimeProgramWidget> {
+class _TimeProgramWidgetState extends State<TimeProgramWidget>
+    with HistoryAwareState<TimeProgramWidget> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -103,6 +112,7 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
                       ? widget.program.commands.last.groupAddress
                       : '';
                   widget.program.commands.add(TimeCommand(groupAddress: defaultGa));
+                  markHistoryCaptureNeeded();
                 }),
               ),
             ],
@@ -122,7 +132,10 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
             _CommandCard(
               key: ObjectKey(widget.program.commands[i]),
               command: widget.program.commands[i],
-              onRemove: () => setState(() => widget.program.commands.removeAt(i)),
+              onRemove: () => setState(() {
+                widget.program.commands.removeAt(i);
+                markHistoryCaptureNeeded();
+              }),
             ),
           const SizedBox(height: 16),
           Align(
@@ -148,7 +161,8 @@ class _CommandCard extends StatefulWidget {
   State<_CommandCard> createState() => _CommandCardState();
 }
 
-class _CommandCardState extends State<_CommandCard> {
+class _CommandCardState extends State<_CommandCard>
+    with HistoryAwareState<_CommandCard> {
   static const _days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
   late final TextEditingController _byteController;
   String? _byteError;
@@ -192,6 +206,7 @@ class _CommandCardState extends State<_CommandCard> {
                 setState(() {
                   widget.command.groupAddress = v;
                   _gaError = validateGroupAddress(v);
+                  markHistoryCaptureNeeded();
                 });
               },
             ),
@@ -236,23 +251,36 @@ class _CommandCardState extends State<_CommandCard> {
                     selected: _isDaySelected(c.weekdaysMask, i),
                     onSelected: (sel) => setState(() {
                       c.weekdaysMask = _toggleDay(c.weekdaysMask, i);
+                      markHistoryCaptureNeeded();
                     }),
                   ),
                 const SizedBox(width: 12),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekdays()),
+                  onPressed: () => setState(() {
+                    c.weekdaysMask = _maskForWeekdays();
+                    markHistoryCaptureNeeded();
+                  }),
                   child: const Text('Wochentage'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekend()),
+                  onPressed: () => setState(() {
+                    c.weekdaysMask = _maskForWeekend();
+                    markHistoryCaptureNeeded();
+                  }),
                   child: const Text('Wochenende'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForAll()),
+                  onPressed: () => setState(() {
+                    c.weekdaysMask = _maskForAll();
+                    markHistoryCaptureNeeded();
+                  }),
                   child: const Text('Alle'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = 0),
+                  onPressed: () => setState(() {
+                    c.weekdaysMask = 0;
+                    markHistoryCaptureNeeded();
+                  }),
                   child: const Text('Keine'),
                 ),
               ],
@@ -265,7 +293,10 @@ class _CommandCardState extends State<_CommandCard> {
                   const SizedBox(width: 8),
                   Switch(
                     value: c.value == 1,
-                    onChanged: (v) => setState(() => c.value = v ? 1 : 0),
+                    onChanged: (v) => setState(() {
+                      c.value = v ? 1 : 0;
+                      markHistoryCaptureNeeded();
+                    }),
                   ),
                   const SizedBox(width: 4),
                   Text(c.value == 1 ? 'Ein (1)' : 'Aus (0)'),
@@ -298,6 +329,7 @@ class _CommandCardState extends State<_CommandCard> {
                               } else {
                                 _byteError = null;
                                 c.value = n;
+                                markHistoryCaptureNeeded();
                               }
                             });
                           },
@@ -315,6 +347,7 @@ class _CommandCardState extends State<_CommandCard> {
                             _byteError = null;
                             // keep text field in sync when sliding
                             _byteController.text = c.value.toString();
+                            markHistoryCaptureNeeded();
                           }),
                         ),
                       ),
@@ -365,7 +398,8 @@ class _TimeField extends StatefulWidget {
   State<_TimeField> createState() => _TimeFieldState();
 }
 
-class _TimeFieldState extends State<_TimeField> {
+class _TimeFieldState extends State<_TimeField>
+    with HistoryAwareState<_TimeField> {
   late String _value;
 
   @override
@@ -400,6 +434,7 @@ class _TimeFieldState extends State<_TimeField> {
             _value = _format(picked);
           });
           widget.onChanged(_value);
+          markHistoryCaptureNeeded();
         }
       },
     );

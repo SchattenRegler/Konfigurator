@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:configurator/facade_orientation_dialog.dart';
 import 'package:configurator/globals.dart';
+import 'package:configurator/history.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -131,7 +132,10 @@ class _SectorWidgetState extends State<SectorWidget> {
     }
   }
 
-  void _mutate(VoidCallback update) => setState(update);
+  void _mutate(VoidCallback update) {
+    setState(update);
+    HistoryBinding.requestCapture();
+  }
 
   void _addHorizonPoint() {
     setState(() {
@@ -143,6 +147,7 @@ class _SectorWidgetState extends State<SectorWidget> {
       _horizonAzErrors[p] = null;
       _horizonElErrors[p] = null;
     });
+    HistoryBinding.requestCapture();
   }
 
   void _addCeilingPoint() {
@@ -155,6 +160,7 @@ class _SectorWidgetState extends State<SectorWidget> {
       _ceilingAzErrors[p] = null;
       _ceilingElErrors[p] = null;
     });
+    HistoryBinding.requestCapture();
   }
 
   List<FlSpot> _computeSolarPath(DateTime date) {
@@ -255,6 +261,7 @@ class _SectorWidgetState extends State<SectorWidget> {
           ..sort((a, b) => a.x.compareTo(b.x));
         _syncPointEditors();
       });
+      HistoryBinding.requestCapture();
 
       if (mounted) {
         ScaffoldMessenger.of(

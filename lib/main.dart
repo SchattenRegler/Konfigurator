@@ -14,6 +14,7 @@ import 'location_dialog.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
+import 'history.dart';
 
 void main() {
   runApp(const MyApp());
@@ -171,6 +172,14 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
@@ -178,7 +187,29 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  final ConfigHistoryController _history = ConfigHistoryController();
+  Timer? _historyDebounce;
+  bool _suspendHistoryCapture = false;
   // --- XML Parsing ---
+  void _scheduleHistorySnapshot() {
+    if (_suspendHistoryCapture || !mounted) {
+      return;
+    }
+    _historyDebounce?.cancel();
+    _historyDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (_suspendHistoryCapture || !mounted) {
+        return;
+      }
+      final snapshot = toXml();
+      _history.capture(snapshot);
+    });
+  }
+
+  void _updateConfig(VoidCallback update) {
+    setState(update);
+    _scheduleHistorySnapshot();
+  }
+
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
     final root = doc.getElement('Konfiguration');
@@ -199,7 +230,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       return int.tryParse(trimmed);
     }
 
-    setState(() {
+    _updateConfig(() {
       version = root.getElement('Version')?.innerText ?? '';
       brightnessAddress = root.getElement('BrightnessAddress')?.innerText ?? '';
       irradianceAddress = root.getElement('IrradianceAddress')?.innerText ?? '';
@@ -464,7 +495,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _lngController = TextEditingController();
 
   void _loadXmlContent(String content, {bool showSuccess = true}) {
-    fromXml(content);
+    _applySnapshot(content, resetHistory: true);
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
@@ -472,9 +503,42 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
   }
 
+  void _applySnapshot(String content, {required bool resetHistory}) {
+    _historyDebounce?.cancel();
+    _suspendHistoryCapture = true;
+    fromXml(content);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _suspendHistoryCapture = false;
+      final normalized = toXml();
+      if (resetHistory) {
+        _history.initialize(normalized);
+      } else {
+        _history.replaceCurrent(normalized);
+      }
+    });
+  }
+
+  void _performUndo() {
+    final snapshot = _history.undo();
+    if (snapshot != null) {
+      _applySnapshot(snapshot, resetHistory: false);
+    }
+  }
+
+  void _performRedo() {
+    final snapshot = _history.redo();
+    if (snapshot != null) {
+      _applySnapshot(snapshot, resetHistory: false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    HistoryBinding.register(_scheduleHistorySnapshot);
     if (kIsWeb) {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
@@ -493,17 +557,20 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
 
     final initialContent = widget.initialXmlContent;
-    if (initialContent != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _loadXmlContent(initialContent);
-        }
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (initialContent != null) {
+        _loadXmlContent(initialContent);
+      } else {
+        _history.initialize(toXml());
+      }
+    });
   }
 
   @override
   void dispose() {
+    _historyDebounce?.cancel();
+    HistoryBinding.unregister(_scheduleHistorySnapshot);
     _keyDownSub?.cancel();
     super.dispose();
   }
@@ -869,7 +936,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
     );
 
     if (picked != null) {
-      setState(() {
+      _updateConfig(() {
         _latController.text = picked.latitude.toStringAsFixed(6);
         _lngController.text = picked.longitude.toStringAsFixed(6);
         latitude = picked.latitude;
@@ -999,7 +1066,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   title: const Text('Sektor hinzufügen'),
                   tileColor: Colors.grey.shade200,
                   onTap: () {
-                    setState(() {
+                    _updateConfig(() {
                       sectors.add(Sector());
                       editingSectorIndex = sectors.length - 1;
                       editingTimerIndex = null;
@@ -1014,7 +1081,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   onTap: _copiedSector != null
                       ? () {
                           setState(() => selectedPage = 'Sektoren');
-                          setState(() {
+                          _updateConfig(() {
                             sectors.add(
                               Sector()
                                 ..name = _copiedSector!.name
@@ -1090,7 +1157,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   title: const Text('Programm hinzufügen'),
                   tileColor: Colors.grey.shade200,
                   onTap: () {
-                    setState(() {
+                    _updateConfig(() {
                       timePrograms.add(TimeProgram());
                       selectedPage = 'Zeitschaltuhren';
                       editingTimerIndex = timePrograms.length - 1;
@@ -1106,7 +1173,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   onTap: _copiedProgram != null
                       ? () {
                           setState(() => selectedPage = 'Zeitschaltuhren');
-                          setState(() {
+                          _updateConfig(() {
                             timePrograms.add(
                               TimeProgram()
                                 ..name = _copiedProgram!.name
@@ -1142,11 +1209,19 @@ class _ConfigScreenState extends State<ConfigScreen> {
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+            const RedoIntent(),
         // macOS: ⌘S / ⌘⇧S
         SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+            const RedoIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1159,6 +1234,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
           SaveAsIntent: CallbackAction<SaveAsIntent>(
             onInvoke: (intent) {
               _saveAsXml();
+              return null;
+            },
+          ),
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (intent) {
+              _performUndo();
+              return null;
+            },
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (intent) {
+              _performRedo();
               return null;
             },
           ),
@@ -1265,7 +1352,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               onTap: () {
                                 Navigator.pop(context);
                                 setState(() => selectedPage = 'Sektoren');
-                                setState(() {
+                                _updateConfig(() {
                                   sectors.add(Sector());
                                   editingSectorIndex = sectors.length - 1;
                                   editingTimerIndex = null;
@@ -1280,7 +1367,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   ? () {
                                       Navigator.pop(context);
                                       setState(() => selectedPage = 'Sektoren');
-                                      setState(() {
+                                      _updateConfig(() {
                                         sectors.add(
                                           Sector()
                                             ..name = _copiedSector!.name
@@ -1380,7 +1467,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 setState(
                                   () => selectedPage = 'Zeitschaltuhren',
                                 );
-                                setState(() {
+                                _updateConfig(() {
                                   timePrograms.add(TimeProgram());
                                   editingTimerIndex = timePrograms.length - 1;
                                   editingSectorIndex = null;
@@ -1397,7 +1484,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       setState(
                                         () => selectedPage = 'Zeitschaltuhren',
                                       );
-                                      setState(() {
+                                      _updateConfig(() {
                                         timePrograms.add(
                                           TimeProgram()
                                             ..name = _copiedProgram!.name
@@ -1437,7 +1524,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             ? SectorWidget(
                                 key: ValueKey(editingSectorIndex),
                                 sector: sectors[editingSectorIndex!],
-                                onRemove: () => setState(() {
+                                onRemove: () => _updateConfig(() {
                                   sectors.removeAt(editingSectorIndex!);
                                   editingSectorIndex = null;
                                 }),
@@ -1488,7 +1575,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                           ),
                                         ],
                                         onChanged: (v) =>
-                                            setState(() => azElOption = v!),
+                                            _updateConfig(() => azElOption = v!),
                                       ),
                                       if (azElOption == 'BusTime') ...[
                                         const SizedBox(height: 8),
@@ -1541,9 +1628,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.add),
-                                          onPressed: () => setState(
-                                            () => sectors.add(Sector()),
-                                          ),
+                                          onPressed: () =>
+                                              _updateConfig(() => sectors.add(Sector())),
                                         ),
                                       ],
                                     ),
@@ -1552,7 +1638,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         key: ValueKey(i),
                                         sector: sectors[i],
                                         onRemove: () =>
-                                            setState(() => sectors.removeAt(i)),
+                                            _updateConfig(() => sectors.removeAt(i)),
                                       ),
                                   ],
                                 ),
@@ -1562,7 +1648,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   ? TimeProgramWidget(
                                       key: ValueKey('tp_$editingTimerIndex'),
                                       program: timePrograms[editingTimerIndex!],
-                                      onRemove: () => setState(() {
+                                      onRemove: () => _updateConfig(() {
                                         timePrograms.removeAt(
                                           editingTimerIndex!,
                                         );
@@ -1621,7 +1707,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 ),
                               ),
                             ],
-                            onChanged: (v) => setState(() => azElOption = v!),
+                            onChanged: (v) =>
+                                _updateConfig(() => azElOption = v!),
                           ),
                           if (azElOption == 'BusTime') ...[
                             const SizedBox(height: 8),
@@ -1657,7 +1744,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? SectorWidget(
                           key: ValueKey(editingSectorIndex),
                           sector: sectors[editingSectorIndex!],
-                          onRemove: () => setState(() {
+                          onRemove: () => _updateConfig(() {
                             sectors.removeAt(editingSectorIndex!);
                             editingSectorIndex = null;
                           }),
@@ -1672,7 +1759,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? TimeProgramWidget(
                           key: ValueKey('tp_m_$editingTimerIndex'),
                           program: timePrograms[editingTimerIndex!],
-                          onRemove: () => setState(() {
+                          onRemove: () => _updateConfig(() {
                             timePrograms.removeAt(editingTimerIndex!);
                             editingTimerIndex = null;
                           }),
