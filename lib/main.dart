@@ -1,18 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:io';
-import 'package:xml/xml.dart' as xml;
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:universal_html/js_util.dart' as js_util;
-import 'sector.dart';
+import 'package:xml/xml.dart' as xml;
+
+import 'config_change_notifier.dart';
 import 'globals.dart';
 import 'location_dialog.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:flutter/services.dart';
+import 'sector.dart';
 import 'timeswitch.dart';
 
 void main() {
@@ -171,6 +174,14 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
@@ -178,6 +189,20 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  static const int _maxHistoryEntries = 50;
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
+  String? _currentSnapshot;
+  Timer? _snapshotDebounce;
+  bool _isRestoringState = false;
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    if (!_isRestoringState) {
+      _scheduleSnapshot();
+    }
+  }
   // --- XML Parsing ---
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
@@ -464,7 +489,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _lngController = TextEditingController();
 
   void _loadXmlContent(String content, {bool showSuccess = true}) {
+    _snapshotDebounce?.cancel();
+    _isRestoringState = true;
     fromXml(content);
+    _isRestoringState = false;
+    _resetHistory();
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
@@ -472,9 +501,95 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
   }
 
+  void _handleExternalConfigurationChange() {
+    if (!_isRestoringState) {
+      _scheduleSnapshot();
+    }
+  }
+
+  void _scheduleSnapshot() {
+    if (!mounted || _isRestoringState) return;
+    _snapshotDebounce?.cancel();
+    _snapshotDebounce = Timer(const Duration(milliseconds: 250), _captureSnapshot);
+  }
+
+  void _captureSnapshot() {
+    if (!mounted || _isRestoringState) return;
+    final snapshot = toXml();
+    if (_currentSnapshot == null) {
+      _currentSnapshot = snapshot;
+      return;
+    }
+    if (snapshot == _currentSnapshot) {
+      return;
+    }
+    _undoStack.add(_currentSnapshot!);
+    if (_undoStack.length > _maxHistoryEntries) {
+      _undoStack.removeAt(0);
+    }
+    _currentSnapshot = snapshot;
+    _redoStack.clear();
+  }
+
+  void _resetHistory() {
+    _snapshotDebounce?.cancel();
+    final snapshot = toXml();
+    _currentSnapshot = snapshot;
+    _undoStack.clear();
+    _redoStack.clear();
+  }
+
+  void _restoreSnapshot(String snapshot) {
+    _snapshotDebounce?.cancel();
+    _isRestoringState = true;
+    fromXml(snapshot);
+    int? nextSectorIndex = editingSectorIndex;
+    if (nextSectorIndex != null &&
+        (nextSectorIndex < 0 || nextSectorIndex >= sectors.length)) {
+      nextSectorIndex = null;
+    }
+    int? nextTimerIndex = editingTimerIndex;
+    if (nextTimerIndex != null &&
+        (nextTimerIndex < 0 || nextTimerIndex >= timePrograms.length)) {
+      nextTimerIndex = null;
+    }
+    if (nextSectorIndex != editingSectorIndex ||
+        nextTimerIndex != editingTimerIndex) {
+      setState(() {
+        editingSectorIndex = nextSectorIndex;
+        editingTimerIndex = nextTimerIndex;
+      });
+    }
+    _isRestoringState = false;
+    _currentSnapshot = snapshot;
+  }
+
+  void _performUndo() {
+    if (_undoStack.isEmpty || _currentSnapshot == null) return;
+    final snapshot = _undoStack.removeLast();
+    _redoStack.add(_currentSnapshot!);
+    if (_redoStack.length > _maxHistoryEntries) {
+      _redoStack.removeAt(0);
+    }
+    _restoreSnapshot(snapshot);
+  }
+
+  void _performRedo() {
+    if (_redoStack.isEmpty || _currentSnapshot == null) return;
+    final snapshot = _redoStack.removeLast();
+    _undoStack.add(_currentSnapshot!);
+    if (_undoStack.length > _maxHistoryEntries) {
+      _undoStack.removeAt(0);
+    }
+    _restoreSnapshot(snapshot);
+  }
+
   @override
   void initState() {
     super.initState();
+    configurationChangeListener = _handleExternalConfigurationChange;
+    _latController.addListener(_handleExternalConfigurationChange);
+    _lngController.addListener(_handleExternalConfigurationChange);
     if (kIsWeb) {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
@@ -499,11 +614,21 @@ class _ConfigScreenState extends State<ConfigScreen> {
           _loadXmlContent(initialContent);
         }
       });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _resetHistory();
+        }
+      });
     }
   }
 
   @override
   void dispose() {
+    configurationChangeListener = null;
+    _latController.removeListener(_handleExternalConfigurationChange);
+    _lngController.removeListener(_handleExternalConfigurationChange);
+    _snapshotDebounce?.cancel();
     _keyDownSub?.cancel();
     super.dispose();
   }
@@ -1142,11 +1267,19 @@ class _ConfigScreenState extends State<ConfigScreen> {
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+            const RedoIntent(),
         // macOS: ⌘S / ⌘⇧S
         SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+            const RedoIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1159,6 +1292,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
           SaveAsIntent: CallbackAction<SaveAsIntent>(
             onInvoke: (intent) {
               _saveAsXml();
+              return null;
+            },
+          ),
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (intent) {
+              _performUndo();
+              return null;
+            },
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (intent) {
+              _performRedo();
               return null;
             },
           ),

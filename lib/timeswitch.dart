@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
+import 'config_change_notifier.dart';
+
 enum CommandType { oneBit, oneByte }
 
 String? validateGroupAddress(String v) {
@@ -54,7 +56,10 @@ class TimeProgram {
   }
 
   String get name => nameNotifier.value;
-  set name(String value) => nameNotifier.value = value;
+  set name(String value) {
+    nameNotifier.value = value;
+    notifyConfigurationChanged();
+  }
 }
 
 class TimeProgramWidget extends StatefulWidget {

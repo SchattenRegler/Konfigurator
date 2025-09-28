@@ -1,7 +1,9 @@
-import 'timeswitch.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
+
+import 'config_change_notifier.dart';
+import 'timeswitch.dart';
 
 double latitude = 0;
 double longitude = 0;
@@ -90,7 +92,10 @@ class Sector {
   }
 
   String get name => nameNotifier.value;
-  set name(String value) => nameNotifier.value = value;
+  set name(String value) {
+    nameNotifier.value = value;
+    notifyConfigurationChanged();
+  }
 }
 
 class Point {
