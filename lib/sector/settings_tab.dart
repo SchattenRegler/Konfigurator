@@ -23,6 +23,7 @@ extension _SettingsTab on _SectorWidgetState {
                 decoration: const InputDecoration(labelText: 'Name'),
                 onChanged: (v) {
                   sector.name = v;
+                  widget.onChanged();
                 },
               );
             },

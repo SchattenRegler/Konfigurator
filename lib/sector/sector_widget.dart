@@ -25,13 +25,29 @@ class _CsvSectorData {
 class SectorWidget extends StatefulWidget {
   final Sector sector;
   final VoidCallback onRemove;
-  const SectorWidget({super.key, required this.sector, required this.onRemove});
+  final VoidCallback onChanged;
+
+  const SectorWidget({
+    super.key,
+    required this.sector,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<SectorWidget> createState() => _SectorWidgetState();
 }
 
 class _SectorWidgetState extends State<SectorWidget> {
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(() {
+      fn();
+      widget.onChanged();
+    });
+  }
+
   Sector get sector => widget.sector;
   late TextEditingController _orientationController;
   // Controllers for horizon/ceiling point entry

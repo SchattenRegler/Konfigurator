@@ -10,9 +10,15 @@ String? validateGroupAddress(String v) {
   final b = int.tryParse(parts.length > 1 ? parts[1] : '');
   final c = int.tryParse(parts.length > 2 ? parts[2] : '');
   if (parts.length != 3 ||
-      a == null || a < 0 || a > 31 ||
-      b == null || b < 0 || b > 7 ||
-      c == null || c < 0 || c > 255 ||
+      a == null ||
+      a < 0 ||
+      a > 31 ||
+      b == null ||
+      b < 0 ||
+      b > 7 ||
+      c == null ||
+      c < 0 ||
+      c > 255 ||
       (a == 0 && b == 0 && c == 0)) {
     return 'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
   }
@@ -44,12 +50,9 @@ class TimeProgram {
   late final ValueNotifier<String> nameNotifier;
   List<TimeCommand> commands;
 
-  TimeProgram({
-    String? guid,
-    String name = '',
-    List<TimeCommand>? commands,
-  })  : guid = guid ?? const Uuid().v4(),
-        commands = commands ?? [] {
+  TimeProgram({String? guid, String name = '', List<TimeCommand>? commands})
+    : guid = guid ?? const Uuid().v4(),
+      commands = commands ?? [] {
     nameNotifier = ValueNotifier<String>(name);
   }
 
@@ -60,13 +63,29 @@ class TimeProgram {
 class TimeProgramWidget extends StatefulWidget {
   final TimeProgram program;
   final VoidCallback onRemove;
-  const TimeProgramWidget({super.key, required this.program, required this.onRemove});
+  final VoidCallback onChanged;
+
+  const TimeProgramWidget({
+    super.key,
+    required this.program,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<TimeProgramWidget> createState() => _TimeProgramWidgetState();
 }
 
 class _TimeProgramWidgetState extends State<TimeProgramWidget> {
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(() {
+      fn();
+      widget.onChanged();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -86,7 +105,10 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               return TextFormField(
                 initialValue: name,
                 decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: (v) => widget.program.name = v,
+                onChanged: (v) {
+                  widget.program.name = v;
+                  widget.onChanged();
+                },
               );
             },
           ),
@@ -94,7 +116,10 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Befehle', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text(
+                'Befehle',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Befehl hinzufügen',
@@ -102,7 +127,9 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
                   final defaultGa = widget.program.commands.isNotEmpty
                       ? widget.program.commands.last.groupAddress
                       : '';
-                  widget.program.commands.add(TimeCommand(groupAddress: defaultGa));
+                  widget.program.commands.add(
+                    TimeCommand(groupAddress: defaultGa),
+                  );
                 }),
               ),
             ],
@@ -122,7 +149,9 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
             _CommandCard(
               key: ObjectKey(widget.program.commands[i]),
               command: widget.program.commands[i],
-              onRemove: () => setState(() => widget.program.commands.removeAt(i)),
+              onRemove: () =>
+                  setState(() => widget.program.commands.removeAt(i)),
+              onChanged: widget.onChanged,
             ),
           const SizedBox(height: 16),
           Align(
@@ -130,9 +159,12 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
             child: TextButton.icon(
               onPressed: widget.onRemove,
               icon: const Icon(Icons.delete_forever, color: Colors.red),
-              label: const Text('Programm löschen', style: TextStyle(color: Colors.red)),
+              label: const Text(
+                'Programm löschen',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -142,7 +174,14 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
 class _CommandCard extends StatefulWidget {
   final TimeCommand command;
   final VoidCallback onRemove;
-  const _CommandCard({super.key, required this.command, required this.onRemove});
+  final VoidCallback onChanged;
+
+  const _CommandCard({
+    super.key,
+    required this.command,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<_CommandCard> createState() => _CommandCardState();
@@ -158,9 +197,13 @@ class _CommandCardState extends State<_CommandCard> {
   @override
   void initState() {
     super.initState();
-    _byteController = TextEditingController(text: widget.command.value.toString());
+    _byteController = TextEditingController(
+      text: widget.command.value.toString(),
+    );
     _byteError = null;
-    _gaError = widget.command.groupAddress.isEmpty ? null : validateGroupAddress(widget.command.groupAddress);
+    _gaError = widget.command.groupAddress.isEmpty
+        ? null
+        : validateGroupAddress(widget.command.groupAddress);
     _gaController = TextEditingController(text: widget.command.groupAddress);
   }
 
@@ -169,6 +212,15 @@ class _CommandCardState extends State<_CommandCard> {
     _byteController.dispose();
     _gaController.dispose();
     super.dispose();
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(() {
+      fn();
+      widget.onChanged();
+    });
   }
 
   @override
@@ -206,16 +258,15 @@ class _CommandCardState extends State<_CommandCard> {
                       onChanged: (t) => setState(() {
                         c.type = t;
                         if (c.type == CommandType.oneByte) {
-                          _byteController.text = c.value.clamp(0, 255).toString();
+                          _byteController.text = c.value
+                              .clamp(0, 255)
+                              .toString();
                           _byteError = null;
                         }
                       }),
                     ),
                     const SizedBox(width: 12),
-                    _TimeField(
-                      initial: c.time,
-                      onChanged: (v) => c.time = v,
-                    ),
+                    _TimeField(initial: c.time, onChanged: (v) => c.time = v),
                   ],
                 ),
                 IconButton(
@@ -240,15 +291,18 @@ class _CommandCardState extends State<_CommandCard> {
                   ),
                 const SizedBox(width: 12),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekdays()),
+                  onPressed: () =>
+                      setState(() => c.weekdaysMask = _maskForWeekdays()),
                   child: const Text('Wochentage'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekend()),
+                  onPressed: () =>
+                      setState(() => c.weekdaysMask = _maskForWeekend()),
                   child: const Text('Wochenende'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForAll()),
+                  onPressed: () =>
+                      setState(() => c.weekdaysMask = _maskForAll()),
                   child: const Text('Alle'),
                 ),
                 TextButton(
@@ -287,8 +341,13 @@ class _CommandCardState extends State<_CommandCard> {
                             isDense: true,
                             errorText: _byteError,
                           ),
-                          keyboardType: const TextInputType.numberWithOptions(signed: false, decimal: false),
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            signed: false,
+                            decimal: false,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           onChanged: (v) {
                             final n = int.tryParse(v);
                             setState(() {
@@ -329,7 +388,8 @@ class _CommandCardState extends State<_CommandCard> {
     );
   }
 
-  static bool _isDaySelected(int mask, int dayIndex) => (mask & (1 << dayIndex)) != 0;
+  static bool _isDaySelected(int mask, int dayIndex) =>
+      (mask & (1 << dayIndex)) != 0;
   static int _toggleDay(int mask, int dayIndex) => mask ^ (1 << dayIndex);
   static int _maskForAll() => 0x7F; // 7 days
   static int _maskForWeekdays() => 0x1F; // Mon..Fri
@@ -405,5 +465,6 @@ class _TimeFieldState extends State<_TimeField> {
     );
   }
 
-  String _format(TimeOfDay t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}' ;
+  String _format(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 }
