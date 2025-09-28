@@ -418,7 +418,7 @@ extension _SettingsTab on _SectorWidgetState {
             TextFormField(
               initialValue: sector.louvreAngleAddress,
               decoration: InputDecoration(
-                labelText: 'Gruppenadresse Winkel',
+                labelText: 'Gruppenadresse Lamellenwinkel',
                 errorText: _louvreAngleAddressError,
               ),
               onChanged: (v) {
