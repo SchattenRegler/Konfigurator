@@ -23,6 +23,7 @@ extension _SettingsTab on _SectorWidgetState {
                 decoration: const InputDecoration(labelText: 'Name'),
                 onChanged: (v) {
                   sector.name = v;
+                  widget.onChanged();
                 },
               );
             },
@@ -45,7 +46,7 @@ extension _SettingsTab on _SectorWidgetState {
                       _mutate(() {
                         _orientationError =
                             'Bitte Wert zwischen -180 und 180 eingeben';
-                      });
+                      }, notify: false);
                     } else {
                       _mutate(() {
                         _orientationError = null;
@@ -168,7 +169,7 @@ extension _SettingsTab on _SectorWidgetState {
                   _mutate(() {
                     _brightnessUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _brightnessUpperThresholdError = null;
@@ -191,7 +192,7 @@ extension _SettingsTab on _SectorWidgetState {
                 if (val == null || val < 0) {
                   _mutate(() {
                     _brightnessUpperDelayError = 'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _brightnessUpperDelayError = null;
@@ -215,7 +216,7 @@ extension _SettingsTab on _SectorWidgetState {
                   _mutate(() {
                     _brightnessLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _brightnessLowerThresholdError = null;
@@ -238,7 +239,7 @@ extension _SettingsTab on _SectorWidgetState {
                 if (val == null || val < 0) {
                   _mutate(() {
                     _brightnessLowerDelayError = 'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _brightnessLowerDelayError = null;
@@ -298,7 +299,7 @@ extension _SettingsTab on _SectorWidgetState {
                   _mutate(() {
                     _irradianceUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _irradianceUpperThresholdError = null;
@@ -321,7 +322,7 @@ extension _SettingsTab on _SectorWidgetState {
                 if (val == null || val < 0) {
                   _mutate(() {
                     _irradianceUpperDelayError = 'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _irradianceUpperDelayError = null;
@@ -345,7 +346,7 @@ extension _SettingsTab on _SectorWidgetState {
                   _mutate(() {
                     _irradianceLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _irradianceLowerThresholdError = null;
@@ -368,7 +369,7 @@ extension _SettingsTab on _SectorWidgetState {
                 if (val == null || val < 0) {
                   _mutate(() {
                     _irradianceLowerDelayError = 'Bitte gültigen Wert eingeben';
-                  });
+                  }, notify: false);
                 } else {
                   _mutate(() {
                     _irradianceLowerDelayError = null;

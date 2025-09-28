@@ -171,6 +171,14 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
@@ -178,6 +186,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  final List<String> _undoStack = [];
+  final List<String> _redoStack = [];
+  String? _currentSnapshot;
+  Timer? _historyDebounce;
+  bool _isRestoringSnapshot = false;
+  bool _historyInitialized = false;
   // --- XML Parsing ---
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
@@ -417,6 +431,78 @@ class _ConfigScreenState extends State<ConfigScreen> {
     });
   }
 
+  String _replaceStateFromXml(String xmlString) {
+    _isRestoringSnapshot = true;
+    try {
+      fromXml(xmlString);
+    } finally {
+      _isRestoringSnapshot = false;
+    }
+    final snapshot = toXml();
+    _currentSnapshot = snapshot;
+    return snapshot;
+  }
+
+  void _initializeHistory(String snapshot) {
+    _historyDebounce?.cancel();
+    _historyDebounce = null;
+    _undoStack
+      ..clear()
+      ..add(snapshot);
+    _redoStack.clear();
+    _currentSnapshot = snapshot;
+    _historyInitialized = true;
+  }
+
+  void _recordHistorySnapshot({bool clearRedo = true}) {
+    if (!mounted || _isRestoringSnapshot) return;
+    final snapshot = toXml();
+    if (_currentSnapshot == snapshot) return;
+    _undoStack.add(snapshot);
+    _currentSnapshot = snapshot;
+    if (clearRedo) {
+      _redoStack.clear();
+    }
+  }
+
+  void _flushHistory({required bool clearRedo}) {
+    if (_historyDebounce != null) {
+      _historyDebounce!.cancel();
+      _historyDebounce = null;
+      _recordHistorySnapshot(clearRedo: clearRedo);
+    }
+  }
+
+  void _onConfigChanged() {
+    if (_isRestoringSnapshot || !_historyInitialized) return;
+    _historyDebounce?.cancel();
+    _historyDebounce = Timer(const Duration(milliseconds: 200), () {
+      _historyDebounce = null;
+      _recordHistorySnapshot(clearRedo: true);
+    });
+  }
+
+  void _undo() {
+    _flushHistory(clearRedo: false);
+    if (_undoStack.length <= 1) return;
+    final current = _undoStack.removeLast();
+    _redoStack.add(current);
+    final previous = _undoStack.last;
+    _replaceStateFromXml(previous);
+  }
+
+  void _redo() {
+    _flushHistory(clearRedo: false);
+    if (_redoStack.isEmpty) return;
+    final snapshot = _redoStack.removeLast();
+    final normalized = _replaceStateFromXml(snapshot);
+    _undoStack.add(normalized);
+  }
+
+  void _handleLatLngChange() {
+    _onConfigChanged();
+  }
+
   Future<void> _openXml() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -464,7 +550,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _lngController = TextEditingController();
 
   void _loadXmlContent(String content, {bool showSuccess = true}) {
-    fromXml(content);
+    final snapshot = _replaceStateFromXml(content);
+    _initializeHistory(snapshot);
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
@@ -475,6 +562,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _latController.addListener(_handleLatLngChange);
+    _lngController.addListener(_handleLatLngChange);
     if (kIsWeb) {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
@@ -492,19 +581,23 @@ class _ConfigScreenState extends State<ConfigScreen> {
       });
     }
 
-    final initialContent = widget.initialXmlContent;
-    if (initialContent != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _loadXmlContent(initialContent);
-        }
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initialContent = widget.initialXmlContent;
+      if (initialContent != null) {
+        _loadXmlContent(initialContent);
+      } else {
+        _initializeHistory(toXml());
+      }
+    });
   }
 
   @override
   void dispose() {
     _keyDownSub?.cancel();
+    _historyDebounce?.cancel();
+    _latController.removeListener(_handleLatLngChange);
+    _lngController.removeListener(_handleLatLngChange);
     super.dispose();
   }
 
@@ -1004,6 +1097,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       editingSectorIndex = sectors.length - 1;
                       editingTimerIndex = null;
                     });
+                    _onConfigChanged();
                   },
                 ),
                 ListTile(
@@ -1043,6 +1137,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             editingSectorIndex = sectors.length - 1;
                             editingTimerIndex = null;
                           });
+                          _onConfigChanged();
                         }
                       : null,
                 ),
@@ -1142,11 +1237,19 @@ class _ConfigScreenState extends State<ConfigScreen> {
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+            const RedoIntent(),
         // macOS: ⌘S / ⌘⇧S
         SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
             const SaveAsIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+            const UndoIntent(),
+        SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+            const RedoIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -1159,6 +1262,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
           SaveAsIntent: CallbackAction<SaveAsIntent>(
             onInvoke: (intent) {
               _saveAsXml();
+              return null;
+            },
+          ),
+          UndoIntent: CallbackAction<UndoIntent>(
+            onInvoke: (intent) {
+              _undo();
+              return null;
+            },
+          ),
+          RedoIntent: CallbackAction<RedoIntent>(
+            onInvoke: (intent) {
+              _redo();
               return null;
             },
           ),
@@ -1270,6 +1385,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   editingSectorIndex = sectors.length - 1;
                                   editingTimerIndex = null;
                                 });
+                                _onConfigChanged();
                               },
                             ),
                             ListTile(
@@ -1322,6 +1438,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         editingSectorIndex = sectors.length - 1;
                                         editingTimerIndex = null;
                                       });
+                                      _onConfigChanged();
                                     }
                                   : null,
                             ),
@@ -1372,34 +1489,35 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 ),
                               );
                             }).toList(),
-                            ListTile(
-                              leading: const Icon(Icons.add),
-                              title: const Text('Programm hinzufügen'),
-                              onTap: () {
-                                Navigator.pop(context);
-                                setState(
-                                  () => selectedPage = 'Zeitschaltuhren',
-                                );
-                                setState(() {
-                                  timePrograms.add(TimeProgram());
-                                  editingTimerIndex = timePrograms.length - 1;
-                                  editingSectorIndex = null;
-                                });
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.paste),
-                              title: const Text('Einfügen'),
-                              enabled: _copiedProgram != null,
-                              onTap: _copiedProgram != null
-                                  ? () {
-                                      Navigator.pop(context);
-                                      setState(
-                                        () => selectedPage = 'Zeitschaltuhren',
-                                      );
-                                      setState(() {
-                                        timePrograms.add(
-                                          TimeProgram()
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('Programm hinzufügen'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(
+                      () => selectedPage = 'Zeitschaltuhren',
+                    );
+                    setState(() {
+                      timePrograms.add(TimeProgram());
+                      editingTimerIndex = timePrograms.length - 1;
+                      editingSectorIndex = null;
+                    });
+                    _onConfigChanged();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.paste),
+                  title: const Text('Einfügen'),
+                  enabled: _copiedProgram != null,
+                  onTap: _copiedProgram != null
+                      ? () {
+                          Navigator.pop(context);
+                          setState(
+                            () => selectedPage = 'Zeitschaltuhren',
+                          );
+                          setState(() {
+                            timePrograms.add(
+                              TimeProgram()
                                             ..name = _copiedProgram!.name
                                             ..commands = _copiedProgram!
                                                 .commands
@@ -1416,13 +1534,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                                 )
                                                 .toList(),
                                         );
-                                        editingTimerIndex =
-                                            timePrograms.length - 1;
-                                        editingSectorIndex = null;
-                                      });
-                                    }
-                                  : null,
-                            ),
+                            editingTimerIndex =
+                                timePrograms.length - 1;
+                            editingSectorIndex = null;
+                          });
+                          _onConfigChanged();
+                        }
+                      : null,
+                ),
                           ],
                         ),
                       ],
@@ -1437,10 +1556,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             ? SectorWidget(
                                 key: ValueKey(editingSectorIndex),
                                 sector: sectors[editingSectorIndex!],
-                                onRemove: () => setState(() {
-                                  sectors.removeAt(editingSectorIndex!);
-                                  editingSectorIndex = null;
-                                }),
+                                onRemove: () {
+                                  setState(() {
+                                    sectors.removeAt(editingSectorIndex!);
+                                    editingSectorIndex = null;
+                                  });
+                                  _onConfigChanged();
+                                },
+                                onChanged: _onConfigChanged,
                               )
                             : selectedPage == 'Allgemein'
                             ? Form(
@@ -1487,8 +1610,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             ),
                                           ),
                                         ],
-                                        onChanged: (v) =>
-                                            setState(() => azElOption = v!),
+                                        onChanged: (v) {
+                                          if (v == null) return;
+                                          setState(() => azElOption = v);
+                                          _onConfigChanged();
+                                        },
                                       ),
                                       if (azElOption == 'BusTime') ...[
                                         const SizedBox(height: 8),
@@ -1496,6 +1622,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                           decoration: const InputDecoration(
                                             labelText: 'Gruppenadresse Zeit',
                                           ),
+                                          initialValue: timeAddress,
+                                          onChanged: (v) {
+                                            timeAddress = v;
+                                            _onConfigChanged();
+                                          },
                                           onSaved: (v) => timeAddress = v ?? '',
                                         ),
                                       ],
@@ -1505,6 +1636,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                           decoration: const InputDecoration(
                                             labelText: 'Gruppenadresse Azimut',
                                           ),
+                                          initialValue: azimuthAddress,
+                                          onChanged: (v) {
+                                            azimuthAddress = v;
+                                            _onConfigChanged();
+                                          },
                                           onSaved: (v) =>
                                               azimuthAddress = v ?? '',
                                         ),
@@ -1514,6 +1650,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             labelText:
                                                 'Gruppenadresse Elevation',
                                           ),
+                                          initialValue: elevationAddress,
+                                          onChanged: (v) {
+                                            elevationAddress = v;
+                                            _onConfigChanged();
+                                          },
                                           onSaved: (v) =>
                                               elevationAddress = v ?? '',
                                         ),
@@ -1541,9 +1682,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.add),
-                                          onPressed: () => setState(
-                                            () => sectors.add(Sector()),
-                                          ),
+                                          onPressed: () {
+                                            setState(
+                                              () => sectors.add(Sector()),
+                                            );
+                                            _onConfigChanged();
+                                          },
                                         ),
                                       ],
                                     ),
@@ -1551,8 +1695,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       SectorWidget(
                                         key: ValueKey(i),
                                         sector: sectors[i],
-                                        onRemove: () =>
-                                            setState(() => sectors.removeAt(i)),
+                                        onRemove: () {
+                                          setState(() => sectors.removeAt(i));
+                                          _onConfigChanged();
+                                        },
+                                        onChanged: _onConfigChanged,
                                       ),
                                   ],
                                 ),
@@ -1562,12 +1709,16 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   ? TimeProgramWidget(
                                       key: ValueKey('tp_$editingTimerIndex'),
                                       program: timePrograms[editingTimerIndex!],
-                                      onRemove: () => setState(() {
-                                        timePrograms.removeAt(
-                                          editingTimerIndex!,
-                                        );
-                                        editingTimerIndex = null;
-                                      }),
+                                      onRemove: () {
+                                        setState(() {
+                                          timePrograms.removeAt(
+                                            editingTimerIndex!,
+                                          );
+                                          editingTimerIndex = null;
+                                        });
+                                        _onConfigChanged();
+                                      },
+                                      onChanged: _onConfigChanged,
                                     )
                                   : Center(
                                       child: Padding(
@@ -1621,7 +1772,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 ),
                               ),
                             ],
-                            onChanged: (v) => setState(() => azElOption = v!),
+                            onChanged: (v) {
+                              if (v == null) return;
+                              setState(() => azElOption = v);
+                              _onConfigChanged();
+                            },
                           ),
                           if (azElOption == 'BusTime') ...[
                             const SizedBox(height: 8),
@@ -1629,6 +1784,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Gruppenadresse Zeit',
                               ),
+                              initialValue: timeAddress,
+                              onChanged: (v) {
+                                timeAddress = v;
+                                _onConfigChanged();
+                              },
                               onSaved: (v) => timeAddress = v ?? '',
                             ),
                           ],
@@ -1638,6 +1798,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Gruppenadresse Azimut',
                               ),
+                              initialValue: azimuthAddress,
+                              onChanged: (v) {
+                                azimuthAddress = v;
+                                _onConfigChanged();
+                              },
                               onSaved: (v) => azimuthAddress = v ?? '',
                             ),
                             const SizedBox(height: 8),
@@ -1645,6 +1810,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Gruppenadresse Elevation',
                               ),
+                              initialValue: elevationAddress,
+                              onChanged: (v) {
+                                elevationAddress = v;
+                                _onConfigChanged();
+                              },
                               onSaved: (v) => elevationAddress = v ?? '',
                             ),
                           ],
@@ -1657,10 +1827,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? SectorWidget(
                           key: ValueKey(editingSectorIndex),
                           sector: sectors[editingSectorIndex!],
-                          onRemove: () => setState(() {
-                            sectors.removeAt(editingSectorIndex!);
-                            editingSectorIndex = null;
-                          }),
+                          onRemove: () {
+                            setState(() {
+                              sectors.removeAt(editingSectorIndex!);
+                              editingSectorIndex = null;
+                            });
+                            _onConfigChanged();
+                          },
+                          onChanged: _onConfigChanged,
                         )
                       : Center(
                           child: Padding(
@@ -1672,10 +1846,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ? TimeProgramWidget(
                           key: ValueKey('tp_m_$editingTimerIndex'),
                           program: timePrograms[editingTimerIndex!],
-                          onRemove: () => setState(() {
-                            timePrograms.removeAt(editingTimerIndex!);
-                            editingTimerIndex = null;
-                          }),
+                          onRemove: () {
+                            setState(() {
+                              timePrograms.removeAt(editingTimerIndex!);
+                              editingTimerIndex = null;
+                            });
+                            _onConfigChanged();
+                          },
+                          onChanged: _onConfigChanged,
                         )
                       : Center(
                           child: Padding(

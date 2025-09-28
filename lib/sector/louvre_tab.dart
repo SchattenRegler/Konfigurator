@@ -64,15 +64,24 @@ extension _LouvreTab on _SectorWidgetState {
                 onChanged: (v) {
                   final val = _parseLocalizedDouble(v);
                   if (val == null) {
-                    _mutate(() => _louvreAngleZeroError = 'Bitte einen gültigen Winkel eingeben');
+                    _mutate(
+                        () => _louvreAngleZeroError =
+                            'Bitte einen gültigen Winkel eingeben',
+                        notify: false);
                     return;
                   }
                   if (val < 0 || val > 90) {
-                    _mutate(() => _louvreAngleZeroError = 'Wert muss zwischen 0° und 90° liegen');
+                    _mutate(
+                        () => _louvreAngleZeroError =
+                            'Wert muss zwischen 0° und 90° liegen',
+                        notify: false);
                     return;
                   }
                   if (val <= sector.louvreAngleAtHundred) {
-                    _mutate(() => _louvreAngleZeroError = 'Wert muss grösser als Winkel bei 100% sein');
+                    _mutate(
+                        () => _louvreAngleZeroError =
+                            'Wert muss grösser als Winkel bei 100% sein',
+                        notify: false);
                     return;
                   }
                   _mutate(() {
@@ -99,15 +108,24 @@ extension _LouvreTab on _SectorWidgetState {
                 onChanged: (v) {
                   final val = _parseLocalizedDouble(v);
                   if (val == null) {
-                    _mutate(() => _louvreAngleHundredError = 'Bitte einen gültigen Winkel eingeben');
+                    _mutate(
+                        () => _louvreAngleHundredError =
+                            'Bitte einen gültigen Winkel eingeben',
+                        notify: false);
                     return;
                   }
                   if (val < 0 || val > 90) {
-                    _mutate(() => _louvreAngleHundredError = 'Wert muss zwischen 0° und 90° liegen');
+                    _mutate(
+                        () => _louvreAngleHundredError =
+                            'Wert muss zwischen 0° und 90° liegen',
+                        notify: false);
                     return;
                   }
                   if (val >= sector.louvreAngleAtZero) {
-                    _mutate(() => _louvreAngleHundredError = 'Wert muss kleiner als Winkel bei 0% sein');
+                    _mutate(
+                        () => _louvreAngleHundredError =
+                            'Wert muss kleiner als Winkel bei 0% sein',
+                        notify: false);
                     return;
                   }
                   _mutate(() {
@@ -134,11 +152,17 @@ extension _LouvreTab on _SectorWidgetState {
                 onChanged: (v) {
                   final val = _parseLocalizedDouble(v);
                   if (val == null) {
-                    _mutate(() => _louvreMinimumChangeError = 'Bitte eine Zahl zwischen 0% und 100% eingeben');
+                    _mutate(
+                        () => _louvreMinimumChangeError =
+                            'Bitte eine Zahl zwischen 0% und 100% eingeben',
+                        notify: false);
                     return;
                   }
                   if (val < 0 || val > 100) {
-                    _mutate(() => _louvreMinimumChangeError = 'Wert muss zwischen 0% und 100% liegen');
+                    _mutate(
+                        () => _louvreMinimumChangeError =
+                            'Wert muss zwischen 0% und 100% liegen',
+                        notify: false);
                     return;
                   }
                   _mutate(() {
@@ -162,11 +186,17 @@ extension _LouvreTab on _SectorWidgetState {
                 onChanged: (v) {
                   final val = _parseLocalizedDouble(v);
                   if (val == null) {
-                    _mutate(() => _louvreBufferError = 'Bitte eine Zahl zwischen 0% und 100% eingeben');
+                    _mutate(
+                        () => _louvreBufferError =
+                            'Bitte eine Zahl zwischen 0% und 100% eingeben',
+                        notify: false);
                     return;
                   }
                   if (val < 0 || val > 100) {
-                    _mutate(() => _louvreBufferError = 'Wert muss zwischen 0% und 100% liegen');
+                    _mutate(
+                        () => _louvreBufferError =
+                            'Wert muss zwischen 0% und 100% liegen',
+                        notify: false);
                     return;
                   }
                   _mutate(() {
@@ -231,7 +261,7 @@ extension _LouvreTab on _SectorWidgetState {
                 onChanged: (value) {
                   _mutate(() {
                     _louvrePreviewPercent = value;
-                  });
+                  }, notify: false);
                 },
               ),
               Align(

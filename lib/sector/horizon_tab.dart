@@ -13,7 +13,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
               onPressed: () {
                 _mutate(() {
                   _selectedDate = DateTime.now();
-                });
+                }, notify: false);
               },
               child: const Text('Heute'),
             ),
@@ -28,7 +28,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                 if (picked != null) {
                   _mutate(() {
                     _selectedDate = picked;
-                  });
+                  }, notify: false);
                 }
               },
               child: const Text('Datum wählen'),
@@ -114,9 +114,11 @@ extension _HorizonLimitTab on _SectorWidgetState {
                                 });
                               },
                               onAzErrorChange: (p, err) =>
-                                  _mutate(() => _horizonAzErrors[p] = err),
+                                  _mutate(() => _horizonAzErrors[p] = err,
+                                      notify: false),
                               onElErrorChange: (p, err) =>
-                                  _mutate(() => _horizonElErrors[p] = err),
+                                  _mutate(() => _horizonElErrors[p] = err,
+                                      notify: false),
                             ),
                             const Divider(height: 24),
                             Row(
@@ -158,9 +160,11 @@ extension _HorizonLimitTab on _SectorWidgetState {
                                 });
                               },
                               onAzErrorChange: (p, err) =>
-                                  _mutate(() => _ceilingAzErrors[p] = err),
+                                  _mutate(() => _ceilingAzErrors[p] = err,
+                                      notify: false),
                               onElErrorChange: (p, err) =>
-                                  _mutate(() => _ceilingElErrors[p] = err),
+                                  _mutate(() => _ceilingElErrors[p] = err,
+                                      notify: false),
                             ),
                             const SizedBox(height: 16),
                             TextButton.icon(

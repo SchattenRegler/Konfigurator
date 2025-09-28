@@ -60,7 +60,13 @@ class TimeProgram {
 class TimeProgramWidget extends StatefulWidget {
   final TimeProgram program;
   final VoidCallback onRemove;
-  const TimeProgramWidget({super.key, required this.program, required this.onRemove});
+  final VoidCallback onChanged;
+  const TimeProgramWidget({
+    super.key,
+    required this.program,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<TimeProgramWidget> createState() => _TimeProgramWidgetState();
@@ -86,7 +92,10 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               return TextFormField(
                 initialValue: name,
                 decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: (v) => widget.program.name = v,
+                onChanged: (v) {
+                  widget.program.name = v;
+                  widget.onChanged();
+                },
               );
             },
           ),
@@ -98,12 +107,16 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Befehl hinzufügen',
-                onPressed: () => setState(() {
-                  final defaultGa = widget.program.commands.isNotEmpty
-                      ? widget.program.commands.last.groupAddress
-                      : '';
-                  widget.program.commands.add(TimeCommand(groupAddress: defaultGa));
-                }),
+                onPressed: () {
+                  setState(() {
+                    final defaultGa = widget.program.commands.isNotEmpty
+                        ? widget.program.commands.last.groupAddress
+                        : '';
+                    widget.program.commands
+                        .add(TimeCommand(groupAddress: defaultGa));
+                  });
+                  widget.onChanged();
+                },
               ),
             ],
           ),
@@ -122,7 +135,11 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
             _CommandCard(
               key: ObjectKey(widget.program.commands[i]),
               command: widget.program.commands[i],
-              onRemove: () => setState(() => widget.program.commands.removeAt(i)),
+              onChanged: widget.onChanged,
+              onRemove: () {
+                setState(() => widget.program.commands.removeAt(i));
+                widget.onChanged();
+              },
             ),
           const SizedBox(height: 16),
           Align(
@@ -142,7 +159,13 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
 class _CommandCard extends StatefulWidget {
   final TimeCommand command;
   final VoidCallback onRemove;
-  const _CommandCard({super.key, required this.command, required this.onRemove});
+  final VoidCallback onChanged;
+  const _CommandCard({
+    super.key,
+    required this.command,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<_CommandCard> createState() => _CommandCardState();
@@ -193,6 +216,7 @@ class _CommandCardState extends State<_CommandCard> {
                   widget.command.groupAddress = v;
                   _gaError = validateGroupAddress(v);
                 });
+                widget.onChanged();
               },
             ),
             const SizedBox(height: 12),
@@ -203,18 +227,25 @@ class _CommandCardState extends State<_CommandCard> {
                   children: [
                     _TypeDropdown(
                       value: c.type,
-                      onChanged: (t) => setState(() {
-                        c.type = t;
-                        if (c.type == CommandType.oneByte) {
-                          _byteController.text = c.value.clamp(0, 255).toString();
-                          _byteError = null;
-                        }
-                      }),
+                      onChanged: (t) {
+                        setState(() {
+                          c.type = t;
+                          if (c.type == CommandType.oneByte) {
+                            _byteController.text =
+                                c.value.clamp(0, 255).toString();
+                            _byteError = null;
+                          }
+                        });
+                        widget.onChanged();
+                      },
                     ),
                     const SizedBox(width: 12),
                     _TimeField(
                       initial: c.time,
-                      onChanged: (v) => c.time = v,
+                      onChanged: (v) {
+                        c.time = v;
+                        widget.onChanged();
+                      },
                     ),
                   ],
                 ),
@@ -234,25 +265,40 @@ class _CommandCardState extends State<_CommandCard> {
                   FilterChip(
                     label: Text(_days[i]),
                     selected: _isDaySelected(c.weekdaysMask, i),
-                    onSelected: (sel) => setState(() {
-                      c.weekdaysMask = _toggleDay(c.weekdaysMask, i);
-                    }),
+                    onSelected: (sel) {
+                      setState(() {
+                        c.weekdaysMask = _toggleDay(c.weekdaysMask, i);
+                      });
+                      widget.onChanged();
+                    },
                   ),
                 const SizedBox(width: 12),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekdays()),
+                  onPressed: () {
+                    setState(() => c.weekdaysMask = _maskForWeekdays());
+                    widget.onChanged();
+                  },
                   child: const Text('Wochentage'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForWeekend()),
+                  onPressed: () {
+                    setState(() => c.weekdaysMask = _maskForWeekend());
+                    widget.onChanged();
+                  },
                   child: const Text('Wochenende'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = _maskForAll()),
+                  onPressed: () {
+                    setState(() => c.weekdaysMask = _maskForAll());
+                    widget.onChanged();
+                  },
                   child: const Text('Alle'),
                 ),
                 TextButton(
-                  onPressed: () => setState(() => c.weekdaysMask = 0),
+                  onPressed: () {
+                    setState(() => c.weekdaysMask = 0);
+                    widget.onChanged();
+                  },
                   child: const Text('Keine'),
                 ),
               ],
@@ -265,7 +311,10 @@ class _CommandCardState extends State<_CommandCard> {
                   const SizedBox(width: 8),
                   Switch(
                     value: c.value == 1,
-                    onChanged: (v) => setState(() => c.value = v ? 1 : 0),
+                    onChanged: (v) {
+                      setState(() => c.value = v ? 1 : 0);
+                      widget.onChanged();
+                    },
                   ),
                   const SizedBox(width: 4),
                   Text(c.value == 1 ? 'Ein (1)' : 'Aus (0)'),
@@ -300,6 +349,9 @@ class _CommandCardState extends State<_CommandCard> {
                                 c.value = n;
                               }
                             });
+                            if (n != null && n >= 0 && n <= 255) {
+                              widget.onChanged();
+                            }
                           },
                         ),
                       ),
@@ -310,12 +362,15 @@ class _CommandCardState extends State<_CommandCard> {
                           max: 255,
                           divisions: 255,
                           value: c.value.clamp(0, 255).toDouble(),
-                          onChanged: (v) => setState(() {
-                            c.value = v.round();
-                            _byteError = null;
-                            // keep text field in sync when sliding
-                            _byteController.text = c.value.toString();
-                          }),
+                          onChanged: (v) {
+                            setState(() {
+                              c.value = v.round();
+                              _byteError = null;
+                              // keep text field in sync when sliding
+                              _byteController.text = c.value.toString();
+                            });
+                            widget.onChanged();
+                          },
                         ),
                       ),
                     ],

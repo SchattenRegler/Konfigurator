@@ -25,7 +25,13 @@ class _CsvSectorData {
 class SectorWidget extends StatefulWidget {
   final Sector sector;
   final VoidCallback onRemove;
-  const SectorWidget({super.key, required this.sector, required this.onRemove});
+  final VoidCallback onChanged;
+  const SectorWidget({
+    super.key,
+    required this.sector,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
   @override
   State<SectorWidget> createState() => _SectorWidgetState();
@@ -131,10 +137,15 @@ class _SectorWidgetState extends State<SectorWidget> {
     }
   }
 
-  void _mutate(VoidCallback update) => setState(update);
+  void _mutate(VoidCallback update, {bool notify = true}) {
+    setState(update);
+    if (notify) {
+      widget.onChanged();
+    }
+  }
 
   void _addHorizonPoint() {
-    setState(() {
+    _mutate(() {
       final p = Point(x: 0, y: 0);
       sector.horizonPoints.add(p);
       sector.horizonPoints.sort((a, b) => a.x.compareTo(b.x));
@@ -146,7 +157,7 @@ class _SectorWidgetState extends State<SectorWidget> {
   }
 
   void _addCeilingPoint() {
-    setState(() {
+    _mutate(() {
       final p = Point(x: 0, y: 0);
       sector.ceilingPoints.add(p);
       sector.ceilingPoints.sort((a, b) => a.x.compareTo(b.x));
@@ -224,7 +235,7 @@ class _SectorWidgetState extends State<SectorWidget> {
       if (selected == null) return; // canceled
 
       final data = parsed[selected]!;
-      setState(() {
+      _mutate(() {
         // Replace existing points with imported ones
         // Clear controllers to avoid leaks for removed points
         for (final c in _horizonAzCtrls.values) {
