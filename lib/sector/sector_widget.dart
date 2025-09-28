@@ -11,6 +11,8 @@ import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:solar_calculator/solar_calculator.dart';
 
+import '../undo_redo.dart';
+
 part 'settings_tab.dart';
 part 'louvre_tab.dart';
 part 'horizon_tab.dart';
@@ -31,7 +33,8 @@ class SectorWidget extends StatefulWidget {
   State<SectorWidget> createState() => _SectorWidgetState();
 }
 
-class _SectorWidgetState extends State<SectorWidget> {
+class _SectorWidgetState extends State<SectorWidget>
+    with UndoAwareState<SectorWidget> {
   Sector get sector => widget.sector;
   late TextEditingController _orientationController;
   // Controllers for horizon/ceiling point entry

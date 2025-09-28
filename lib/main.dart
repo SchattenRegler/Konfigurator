@@ -14,6 +14,7 @@ import 'location_dialog.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
+import 'undo_redo.dart';
 
 void main() {
   runApp(const MyApp());
@@ -171,13 +172,23 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
-class _ConfigScreenState extends State<ConfigScreen> {
+class UndoIntent extends Intent {
+  const UndoIntent();
+}
+
+class RedoIntent extends Intent {
+  const RedoIntent();
+}
+
+class _ConfigScreenState extends State<ConfigScreen>
+    with UndoAwareState<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
   String? _lastXmlPath; // Native/Desktop last path
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  final UndoRedoController _undoController = UndoRedoController();
   // --- XML Parsing ---
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
@@ -205,6 +216,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
       irradianceAddress = root.getElement('IrradianceAddress')?.innerText ?? '';
       _latController.text = root.getElement('Latitude')?.innerText ?? '';
       _lngController.text = root.getElement('Longitude')?.innerText ?? '';
+      latitudeInput = _latController.text;
+      longitudeInput = _lngController.text;
+      latitude = double.tryParse(latitudeInput) ?? 0;
+      longitude = double.tryParse(longitudeInput) ?? 0;
       azElOption = root.getElement('AzElOption')?.innerText ?? 'Internet';
       timeAddress = root.getElement('TimeAddress')?.innerText ?? '';
       azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
@@ -464,7 +479,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _lngController = TextEditingController();
 
   void _loadXmlContent(String content, {bool showSuccess = true}) {
+    _undoController.beginRestoration();
     fromXml(content);
+    _undoController.endRestoration();
+    _undoController.clearHistory();
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
@@ -475,6 +493,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _latController.text = latitudeInput;
+    _lngController.text = longitudeInput;
+    _undoController.clearHistory();
     if (kIsWeb) {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
@@ -505,6 +526,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void dispose() {
     _keyDownSub?.cancel();
+    _undoController.dispose();
     super.dispose();
   }
 
@@ -872,6 +894,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
       setState(() {
         _latController.text = picked.latitude.toStringAsFixed(6);
         _lngController.text = picked.longitude.toStringAsFixed(6);
+        latitudeInput = _latController.text;
+        longitudeInput = _lngController.text;
         latitude = picked.latitude;
         longitude = picked.longitude;
       });
@@ -896,6 +920,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Breitengrad (Lat)',
                 ),
+                onChanged: (v) => recordChange(() {
+                  latitudeInput = v;
+                  latitude = double.tryParse(v) ?? 0;
+                }),
                 onSaved: (v) => latitude = double.tryParse(v ?? '') ?? 0,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
@@ -911,6 +939,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   signed: true,
                 ),
                 decoration: const InputDecoration(labelText: 'Längengrad'),
+                onChanged: (v) => recordChange(() {
+                  longitudeInput = v;
+                  longitude = double.tryParse(v) ?? 0;
+                }),
                 onSaved: (v) => longitude = double.tryParse(v ?? '') ?? 0,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
@@ -927,6 +959,59 @@ class _ConfigScreenState extends State<ConfigScreen> {
         ),
       ],
     );
+  }
+
+  void _applySnapshot(ConfigSnapshot snapshot) {
+    version = snapshot.version;
+    brightnessAddress = snapshot.brightnessAddress;
+    irradianceAddress = snapshot.irradianceAddress;
+    latitudeInput = snapshot.latitudeText;
+    longitudeInput = snapshot.longitudeText;
+    latitude = snapshot.latitude;
+    longitude = snapshot.longitude;
+    azElOption = snapshot.azElOption;
+    timeAddress = snapshot.timeAddress;
+    azimuthAddress = snapshot.azimuthAddress;
+    elevationAddress = snapshot.elevationAddress;
+    linkBrightnessIrradiance = snapshot.linkBrightnessIrradiance;
+    sectors
+      ..clear()
+      ..addAll(snapshot.sectors.map((s) => s.toSector()));
+    timePrograms
+      ..clear()
+      ..addAll(snapshot.timePrograms.map((p) => p.toProgram()));
+    _latController.text = latitudeInput;
+    _lngController.text = longitudeInput;
+    if (editingSectorIndex != null &&
+        (editingSectorIndex! < 0 || editingSectorIndex! >= sectors.length)) {
+      editingSectorIndex = sectors.isEmpty ? null : sectors.length - 1;
+    }
+    if (editingTimerIndex != null &&
+        (editingTimerIndex! < 0 || editingTimerIndex! >= timePrograms.length)) {
+      editingTimerIndex = timePrograms.isEmpty ? null : timePrograms.length - 1;
+    }
+    _copiedSector = null;
+    _copiedProgram = null;
+  }
+
+  void _handleUndo() {
+    final snapshot = _undoController.undo();
+    if (snapshot == null) return;
+    _undoController.beginRestoration();
+    setState(() {
+      _applySnapshot(snapshot);
+    });
+    _undoController.endRestoration();
+  }
+
+  void _handleRedo() {
+    final snapshot = _undoController.redo();
+    if (snapshot == null) return;
+    _undoController.beginRestoration();
+    setState(() {
+      _applySnapshot(snapshot);
+    });
+    _undoController.endRestoration();
   }
 
   @override
@@ -954,7 +1039,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               selectedTileColor: Colors.blue.shade100,
               tileColor: Colors.grey.shade200,
               onTap: () {
-                setState(() {
+                setUiState(() {
                   editingSectorIndex = null;
                   selectedPage = 'Allgemein';
                 });
@@ -967,8 +1052,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   final i = e.key;
                   final s = e.value;
                   return MouseRegion(
-                    onEnter: (_) => setState(() => _hoveredSectorIndex = i),
-                    onExit: (_) => setState(() => _hoveredSectorIndex = null),
+                    onEnter: (_) => setUiState(() => _hoveredSectorIndex = i),
+                    onExit: (_) => setUiState(() => _hoveredSectorIndex = null),
                     child: ValueListenableBuilder<String>(
                       valueListenable: s.nameNotifier,
                       builder: (context, name, _) {
@@ -977,7 +1062,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           trailing: _hoveredSectorIndex == i
                               ? IconButton(
                                   icon: const Icon(Icons.copy),
-                                  onPressed: () => setState(() {
+                                  onPressed: () => setUiState(() {
                                     _copiedSector = s;
                                   }),
                                 )
@@ -985,7 +1070,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           selected: editingSectorIndex == i,
                           selectedTileColor: Colors.blue.shade100,
                           tileColor: Colors.grey.shade200,
-                          onTap: () => setState(() {
+                          onTap: () => setUiState(() {
                             editingSectorIndex = i;
                             editingTimerIndex = null;
                           }),
@@ -1013,7 +1098,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   enabled: _copiedSector != null,
                   onTap: _copiedSector != null
                       ? () {
-                          setState(() => selectedPage = 'Sektoren');
+                          setUiState(() => selectedPage = 'Sektoren');
                           setState(() {
                             sectors.add(
                               Sector()
@@ -1055,8 +1140,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   final i = e.key;
                   final p = e.value;
                   return MouseRegion(
-                    onEnter: (_) => setState(() => _hoveredProgramIndex = i),
-                    onExit: (_) => setState(() => _hoveredProgramIndex = null),
+                    onEnter: (_) => setUiState(() => _hoveredProgramIndex = i),
+                    onExit: (_) => setUiState(() => _hoveredProgramIndex = null),
                     child: ValueListenableBuilder<String>(
                       valueListenable: p.nameNotifier,
                       builder: (context, name, _) {
@@ -1065,7 +1150,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           trailing: _hoveredProgramIndex == i
                               ? IconButton(
                                   icon: const Icon(Icons.copy),
-                                  onPressed: () => setState(() {
+                                  onPressed: () => setUiState(() {
                                     _copiedProgram = p;
                                   }),
                                 )
@@ -1075,7 +1160,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               selectedPage == 'Zeitschaltuhren',
                           selectedTileColor: Colors.blue.shade100,
                           tileColor: Colors.grey.shade200,
-                          onTap: () => setState(() {
+                          onTap: () => setUiState(() {
                             selectedPage = 'Zeitschaltuhren';
                             editingTimerIndex = i;
                             editingSectorIndex = null;
@@ -1105,7 +1190,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   enabled: _copiedProgram != null,
                   onTap: _copiedProgram != null
                       ? () {
-                          setState(() => selectedPage = 'Zeitschaltuhren');
+                          setUiState(() => selectedPage = 'Zeitschaltuhren');
                           setState(() {
                             timePrograms.add(
                               TimeProgram()
@@ -1135,37 +1220,60 @@ class _ConfigScreenState extends State<ConfigScreen> {
       ),
     );
 
-    return Shortcuts(
-      shortcuts: <ShortcutActivator, Intent>{
-        // Windows/Linux: Ctrl+S / Ctrl+Shift+S
-        SingleActivator(LogicalKeyboardKey.keyS, control: true):
-            const SaveIntent(),
-        SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
-            const SaveAsIntent(),
-        // macOS: ⌘S / ⌘⇧S
-        SingleActivator(LogicalKeyboardKey.keyS, meta: true):
-            const SaveIntent(),
-        SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
-            const SaveAsIntent(),
-      },
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          SaveIntent: CallbackAction<SaveIntent>(
-            onInvoke: (intent) {
-              _saveXml();
-              return null;
-            },
-          ),
-          SaveAsIntent: CallbackAction<SaveAsIntent>(
-            onInvoke: (intent) {
-              _saveAsXml();
-              return null;
-            },
-          ),
+    return UndoRedoScope(
+      controller: _undoController,
+      child: Shortcuts(
+        shortcuts: <ShortcutActivator, Intent>{
+          // Windows/Linux: Ctrl+S / Ctrl+Shift+S
+          SingleActivator(LogicalKeyboardKey.keyS, control: true):
+              const SaveIntent(),
+          SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
+              const SaveAsIntent(),
+          // macOS: ⌘S / ⌘⇧S
+          SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+              const SaveIntent(),
+          SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
+              const SaveAsIntent(),
+          // Undo/Redo
+          SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+              const UndoIntent(),
+          SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
+              const RedoIntent(),
+          SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+              const UndoIntent(),
+          SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
+              const RedoIntent(),
         },
-        child: Focus(
-          autofocus: true,
-          child: Scaffold(
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            SaveIntent: CallbackAction<SaveIntent>(
+              onInvoke: (intent) {
+                _saveXml();
+                return null;
+              },
+            ),
+            SaveAsIntent: CallbackAction<SaveAsIntent>(
+              onInvoke: (intent) {
+                _saveAsXml();
+                return null;
+              },
+            ),
+            UndoIntent: CallbackAction<UndoIntent>(
+              onInvoke: (intent) {
+                _handleUndo();
+                return null;
+              },
+            ),
+            RedoIntent: CallbackAction<RedoIntent>(
+              onInvoke: (intent) {
+                _handleRedo();
+                return null;
+              },
+            ),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Scaffold(
             appBar: AppBar(
               title: const Text('Konfiguration'),
               actions: [
@@ -1218,7 +1326,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           selectedTileColor: Colors.blue.shade100,
                           onTap: () {
                             Navigator.pop(context);
-                            setState(() {
+                            setUiState(() {
                               editingSectorIndex = null;
                               selectedPage = 'Allgemein';
                             });
@@ -1232,9 +1340,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               final s = e.value;
                               return MouseRegion(
                                 onEnter: (_) =>
-                                    setState(() => _hoveredSectorIndex = i),
+                                    setUiState(() => _hoveredSectorIndex = i),
                                 onExit: (_) =>
-                                    setState(() => _hoveredSectorIndex = null),
+                                    setUiState(() => _hoveredSectorIndex = null),
                                 child: ListTile(
                                   title: Text(
                                     s.name.isEmpty ? 'Neuer Sektor' : s.name,
@@ -1242,7 +1350,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   trailing: _hoveredSectorIndex == i
                                       ? IconButton(
                                           icon: const Icon(Icons.copy),
-                                          onPressed: () => setState(() {
+                                          onPressed: () => setUiState(() {
                                             _copiedSector = s;
                                           }),
                                         )
@@ -1250,8 +1358,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   selected: editingSectorIndex == i,
                                   onTap: () {
                                     Navigator.pop(context);
-                                    setState(() => selectedPage = 'Sektoren');
-                                    setState(() {
+                                    setUiState(() => selectedPage = 'Sektoren');
+                                    setUiState(() {
                                       editingSectorIndex = i;
                                       editingTimerIndex = null;
                                     });
@@ -1264,7 +1372,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               title: const Text('Sektor hinzufügen'),
                               onTap: () {
                                 Navigator.pop(context);
-                                setState(() => selectedPage = 'Sektoren');
+                                setUiState(() => selectedPage = 'Sektoren');
                                 setState(() {
                                   sectors.add(Sector());
                                   editingSectorIndex = sectors.length - 1;
@@ -1279,7 +1387,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               onTap: _copiedSector != null
                                   ? () {
                                       Navigator.pop(context);
-                                      setState(() => selectedPage = 'Sektoren');
+                                      setUiState(() => selectedPage = 'Sektoren');
                                       setState(() {
                                         sectors.add(
                                           Sector()
@@ -1335,9 +1443,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               final p = e.value;
                               return MouseRegion(
                                 onEnter: (_) =>
-                                    setState(() => _hoveredProgramIndex = i),
+                                    setUiState(() => _hoveredProgramIndex = i),
                                 onExit: (_) =>
-                                    setState(() => _hoveredProgramIndex = null),
+                                    setUiState(() => _hoveredProgramIndex = null),
                                 child: ValueListenableBuilder<String>(
                                   valueListenable: p.nameNotifier,
                                   builder: (context, name, _) {
@@ -1345,24 +1453,24 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       title: Text(
                                         name.isEmpty ? 'Neues Programm' : name,
                                       ),
-                                      trailing: _hoveredProgramIndex == i
-                                          ? IconButton(
-                                              icon: const Icon(Icons.copy),
-                                              onPressed: () => setState(() {
-                                                _copiedProgram = p;
-                                              }),
-                                            )
-                                          : null,
+                                  trailing: _hoveredProgramIndex == i
+                                      ? IconButton(
+                                          icon: const Icon(Icons.copy),
+                                          onPressed: () => setUiState(() {
+                                            _copiedProgram = p;
+                                          }),
+                                        )
+                                      : null,
                                       selected:
                                           editingTimerIndex == i &&
                                           selectedPage == 'Zeitschaltuhren',
                                       onTap: () {
                                         Navigator.pop(context);
-                                        setState(
+                                        setUiState(
                                           () =>
                                               selectedPage = 'Zeitschaltuhren',
                                         );
-                                        setState(() {
+                                        setUiState(() {
                                           editingTimerIndex = i;
                                           editingSectorIndex = null;
                                         });
@@ -1377,7 +1485,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               title: const Text('Programm hinzufügen'),
                               onTap: () {
                                 Navigator.pop(context);
-                                setState(
+                                setUiState(
                                   () => selectedPage = 'Zeitschaltuhren',
                                 );
                                 setState(() {
@@ -1394,7 +1502,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               onTap: _copiedProgram != null
                                   ? () {
                                       Navigator.pop(context);
-                                      setState(
+                                      setUiState(
                                         () => selectedPage = 'Zeitschaltuhren',
                                       );
                                       setState(() {
@@ -1492,19 +1600,23 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                       ),
                                       if (azElOption == 'BusTime') ...[
                                         const SizedBox(height: 8),
-                                        TextFormField(
-                                          decoration: const InputDecoration(
-                                            labelText: 'Gruppenadresse Zeit',
-                                          ),
-                                          onSaved: (v) => timeAddress = v ?? '',
+                                      TextFormField(
+                                        decoration: const InputDecoration(
+                                          labelText: 'Gruppenadresse Zeit',
                                         ),
-                                      ],
+                                        onChanged: (v) =>
+                                            recordChange(() => timeAddress = v),
+                                        onSaved: (v) => timeAddress = v ?? '',
+                                      ),
+                                    ],
                                       if (azElOption == 'BusAzEl') ...[
                                         const SizedBox(height: 8),
                                         TextFormField(
                                           decoration: const InputDecoration(
                                             labelText: 'Gruppenadresse Azimut',
                                           ),
+                                          onChanged: (v) =>
+                                              recordChange(() => azimuthAddress = v),
                                           onSaved: (v) =>
                                               azimuthAddress = v ?? '',
                                         ),
@@ -1514,6 +1626,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                             labelText:
                                                 'Gruppenadresse Elevation',
                                           ),
+                                          onChanged: (v) =>
+                                              recordChange(() => elevationAddress = v),
                                           onSaved: (v) =>
                                               elevationAddress = v ?? '',
                                         ),
@@ -1625,19 +1739,22 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           ),
                           if (azElOption == 'BusTime') ...[
                             const SizedBox(height: 8),
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Gruppenadresse Zeit',
-                              ),
-                              onSaved: (v) => timeAddress = v ?? '',
+                          TextFormField(
+                            decoration: const InputDecoration(
+                              labelText: 'Gruppenadresse Zeit',
                             ),
-                          ],
+                            onChanged: (v) => recordChange(() => timeAddress = v),
+                            onSaved: (v) => timeAddress = v ?? '',
+                          ),
+                        ],
                           if (azElOption == 'BusAzEl') ...[
                             const SizedBox(height: 8),
                             TextFormField(
                               decoration: const InputDecoration(
                                 labelText: 'Gruppenadresse Azimut',
                               ),
+                              onChanged: (v) =>
+                                  recordChange(() => azimuthAddress = v),
                               onSaved: (v) => azimuthAddress = v ?? '',
                             ),
                             const SizedBox(height: 8),
@@ -1645,6 +1762,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               decoration: const InputDecoration(
                                 labelText: 'Gruppenadresse Elevation',
                               ),
+                              onChanged: (v) =>
+                                  recordChange(() => elevationAddress = v),
                               onSaved: (v) => elevationAddress = v ?? '',
                             ),
                           ],

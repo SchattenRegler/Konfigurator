@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:uuid/uuid.dart';
 
-enum CommandType { oneBit, oneByte }
+import 'models/time_program.dart';
+import 'undo_redo.dart';
+
+export 'models/time_program.dart';
 
 String? validateGroupAddress(String v) {
   final parts = v.split('/');
@@ -19,44 +21,6 @@ String? validateGroupAddress(String v) {
   return null;
 }
 
-class TimeCommand {
-  CommandType type;
-  // Bitmask for weekdays: 0 = Monday ... 6 = Sunday
-  // bit set => day active
-  int weekdaysMask;
-  // Stored as HH:mm 24h
-  String time;
-  // For 1-bit: 0 or 1; For 1-byte: 0..255
-  int value;
-  // KNX three-level group address for this command
-  String groupAddress;
-  TimeCommand({
-    this.type = CommandType.oneBit,
-    this.weekdaysMask = 0,
-    this.time = '08:00',
-    this.value = 1,
-    this.groupAddress = '',
-  });
-}
-
-class TimeProgram {
-  String guid;
-  late final ValueNotifier<String> nameNotifier;
-  List<TimeCommand> commands;
-
-  TimeProgram({
-    String? guid,
-    String name = '',
-    List<TimeCommand>? commands,
-  })  : guid = guid ?? const Uuid().v4(),
-        commands = commands ?? [] {
-    nameNotifier = ValueNotifier<String>(name);
-  }
-
-  String get name => nameNotifier.value;
-  set name(String value) => nameNotifier.value = value;
-}
-
 class TimeProgramWidget extends StatefulWidget {
   final TimeProgram program;
   final VoidCallback onRemove;
@@ -66,7 +30,8 @@ class TimeProgramWidget extends StatefulWidget {
   State<TimeProgramWidget> createState() => _TimeProgramWidgetState();
 }
 
-class _TimeProgramWidgetState extends State<TimeProgramWidget> {
+class _TimeProgramWidgetState extends State<TimeProgramWidget>
+    with UndoAwareState<TimeProgramWidget> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -86,7 +51,8 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               return TextFormField(
                 initialValue: name,
                 decoration: const InputDecoration(labelText: 'Name'),
-                onChanged: (v) => widget.program.name = v,
+                onChanged: (v) =>
+                    recordChange(() => widget.program.name = v),
               );
             },
           ),
@@ -148,7 +114,8 @@ class _CommandCard extends StatefulWidget {
   State<_CommandCard> createState() => _CommandCardState();
 }
 
-class _CommandCardState extends State<_CommandCard> {
+class _CommandCardState extends State<_CommandCard>
+    with UndoAwareState<_CommandCard> {
   static const _days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
   late final TextEditingController _byteController;
   String? _byteError;
@@ -214,7 +181,7 @@ class _CommandCardState extends State<_CommandCard> {
                     const SizedBox(width: 12),
                     _TimeField(
                       initial: c.time,
-                      onChanged: (v) => c.time = v,
+                      onChanged: (v) => recordChange(() => c.time = v),
                     ),
                   ],
                 ),

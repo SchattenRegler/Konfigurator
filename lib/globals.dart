@@ -1,10 +1,12 @@
-import 'timeswitch.dart';
+import 'models/time_program.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 double latitude = 0;
 double longitude = 0;
+String latitudeInput = '';
+String longitudeInput = '';
 
 String version = '0.8.0';
 String brightnessAddress = '';
