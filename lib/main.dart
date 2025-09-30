@@ -79,8 +79,9 @@ class _MyHomePageState extends State<MyHomePage> {
         String content;
         if (kIsWeb) {
           final bytes = result.files.single.bytes;
-          if (bytes == null)
+          if (bytes == null) {
             throw Exception('Datei konnte nicht gelesen werden.');
+          }
           content = String.fromCharCodes(bytes);
         } else {
           final path = result.files.single.path;
@@ -429,8 +430,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
         if (kIsWeb) {
           // On web, read from bytes
           final bytes = result.files.single.bytes;
-          if (bytes == null)
+          if (bytes == null) {
             throw Exception('Datei konnte nicht gelesen werden.');
+          }
           content = String.fromCharCodes(bytes);
         } else {
           // On native, read from file path
@@ -993,7 +995,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       },
                     ),
                   );
-                }).toList(),
+                }),
                 ListTile(
                   leading: const Icon(Icons.add),
                   title: const Text('Sektor hinzufügen'),
@@ -1084,7 +1086,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       },
                     ),
                   );
-                }).toList(),
+                }),
                 ListTile(
                   leading: const Icon(Icons.add),
                   title: const Text('Programm hinzufügen'),
@@ -1258,7 +1260,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   },
                                 ),
                               );
-                            }).toList(),
+                            }),
                             ListTile(
                               leading: const Icon(Icons.add),
                               title: const Text('Sektor hinzufügen'),
@@ -1371,7 +1373,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   },
                                 ),
                               );
-                            }).toList(),
+                            }),
                             ListTile(
                               leading: const Icon(Icons.add),
                               title: const Text('Programm hinzufügen'),

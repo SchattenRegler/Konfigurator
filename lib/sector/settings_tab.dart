@@ -169,6 +169,11 @@ extension _SettingsTab on _SectorWidgetState {
                     _brightnessUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
+                } else if(val <= (sector.brightnessLowerThreshold ?? -1)) {
+                  _mutate(() {
+                    _brightnessUpperThresholdError =
+                        'Muss grösser als der Schwellwert Hell --> Dunkel sein';
+                  });
                 } else {
                   _mutate(() {
                     _brightnessUpperThresholdError = null;
@@ -188,7 +193,7 @@ extension _SettingsTab on _SectorWidgetState {
               ),
               onChanged: (v) {
                 final val = int.tryParse(v);
-                if (val == null || val < 0) {
+                if (val == null || val < 0 || val > 86400) {
                   _mutate(() {
                     _brightnessUpperDelayError = 'Bitte gültigen Wert eingeben';
                   });
@@ -216,6 +221,11 @@ extension _SettingsTab on _SectorWidgetState {
                     _brightnessLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
+                } else if(val >= (sector.brightnessUpperThreshold ?? -1)) {
+                  _mutate(() {
+                    _brightnessLowerThresholdError =
+                        'Muss kleiner als der Schwellwert Dunkel --> Hell sein';
+                  });
                 } else {
                   _mutate(() {
                     _brightnessLowerThresholdError = null;
@@ -235,7 +245,7 @@ extension _SettingsTab on _SectorWidgetState {
               ),
               onChanged: (v) {
                 final val = int.tryParse(v);
-                if (val == null || val < 0) {
+                if (val == null || val < 0 || val > 86400) {
                   _mutate(() {
                     _brightnessLowerDelayError = 'Bitte gültigen Wert eingeben';
                   });
@@ -299,6 +309,11 @@ extension _SettingsTab on _SectorWidgetState {
                     _irradianceUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
+                } else if(val <= (sector.irradianceLowerThreshold ?? -1)) {
+                  _mutate(() {
+                    _irradianceUpperThresholdError =
+                        'Muss grösser als der Schwellwert Hoch --> Tief sein';
+                  });
                 } else {
                   _mutate(() {
                     _irradianceUpperThresholdError = null;
@@ -318,7 +333,7 @@ extension _SettingsTab on _SectorWidgetState {
               ),
               onChanged: (v) {
                 final val = int.tryParse(v);
-                if (val == null || val < 0) {
+                if (val == null || val < 0 || val > 86400) {
                   _mutate(() {
                     _irradianceUpperDelayError = 'Bitte gültigen Wert eingeben';
                   });
@@ -346,6 +361,11 @@ extension _SettingsTab on _SectorWidgetState {
                     _irradianceLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
+                } else if(val >= (sector.irradianceUpperThreshold ?? -1)) {
+                  _mutate(() {
+                    _irradianceLowerThresholdError =
+                        'Muss kleiner als der Schwellwert Tief --> Hoch sein';
+                  });
                 } else {
                   _mutate(() {
                     _irradianceLowerThresholdError = null;
@@ -365,7 +385,7 @@ extension _SettingsTab on _SectorWidgetState {
               ),
               onChanged: (v) {
                 final val = int.tryParse(v);
-                if (val == null || val < 0) {
+                if (val == null || val < 0 || val > 86400) {
                   _mutate(() {
                     _irradianceLowerDelayError = 'Bitte gültigen Wert eingeben';
                   });

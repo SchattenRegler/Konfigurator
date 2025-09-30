@@ -12,11 +12,11 @@ class FacadeOrientationDialog extends StatefulWidget {
   final LatLng? end;
 
   const FacadeOrientationDialog({
-    Key? key,
+    super.key,
     required this.initialAddress,
     this.start,
     this.end,
-  }) : super(key: key);
+  });
 
   @override
   State<FacadeOrientationDialog> createState() => _FacadeOrientationDialogState();

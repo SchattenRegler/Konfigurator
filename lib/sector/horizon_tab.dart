@@ -68,7 +68,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                     elevation: 0,
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: SingleChildScrollView(
@@ -455,7 +455,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

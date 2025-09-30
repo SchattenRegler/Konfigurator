@@ -11,11 +11,11 @@ class LocationPickerDialog extends StatefulWidget {
   final LatLng? end; // ignored in single-point mode, kept for backward compatibility
 
   const LocationPickerDialog({
-    Key? key,
+    super.key,
     required this.initialAddress,
     this.start,
     this.end,
-  }) : super(key: key);
+  });
 
   @override
   State<LocationPickerDialog> createState() => _LocationPickerDialogState();
