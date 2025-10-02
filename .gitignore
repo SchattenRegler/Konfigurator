@@ -1,5 +1,8 @@
 # Miscellaneous
 *.class
+*.iml
+*.ipr
+*.iws
 *.log
 *.pyc
 *.swp
@@ -10,6 +13,7 @@
 .history
 .svn/
 .swiftpm/
+.idea/
 migrate_working_dir/
 
 # IntelliJ related
@@ -27,11 +31,13 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.dartServer/
 .flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 /build/
+pubspec.lock
 
 # Symbolication related
 app.*.symbols
