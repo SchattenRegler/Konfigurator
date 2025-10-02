@@ -263,7 +263,7 @@ class _CommandCardState extends State<_CommandCard> {
                 children: [
                   const Text('Wert:'),
                   const SizedBox(width: 8),
-                  Switch(
+                  Switch.adaptive(
                     value: c.value == 1,
                     onChanged: (v) => setState(() => c.value = v ? 1 : 0),
                   ),
@@ -305,7 +305,7 @@ class _CommandCardState extends State<_CommandCard> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Slider(
+                        child: Slider.adaptive(
                           min: 0,
                           max: 255,
                           divisions: 255,

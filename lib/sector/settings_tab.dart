@@ -98,7 +98,7 @@ extension _SettingsTab on _SectorWidgetState {
           ),
 
           const SizedBox(height: 16),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: const Text('Helligkeit verwenden'),
             value: sector.useBrightness,
             onChanged: sector.useIrradiance
@@ -108,7 +108,7 @@ extension _SettingsTab on _SectorWidgetState {
                 : null,
           ),
           const SizedBox(height: 16),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: const Text('Globalstrahlung verwenden'),
             value: sector.useIrradiance,
             onChanged: sector.useBrightness
@@ -518,14 +518,14 @@ extension _SettingsTab on _SectorWidgetState {
             ),
 
           const SizedBox(height: 16),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: const Text('Lamellennachführung'),
             value: sector.louvreTracking,
             onChanged: (v) => _mutate(() {
               sector.louvreTracking = v;
             }),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             title: const Text('Horizontbegrenzung'),
             value: sector.horizonLimit,
             onChanged: (v) => _mutate(() {

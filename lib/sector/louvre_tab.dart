@@ -260,7 +260,7 @@ extension _LouvreTab on _SectorWidgetState {
             ),
             const SizedBox(height: 16),
             Row(children: const [Text('0%'), Spacer(), Text('100%')]),
-            Slider(
+            Slider.adaptive(
               value: _louvrePreviewPercent.clamp(0, 100).toDouble(),
               min: 0,
               max: 100,
