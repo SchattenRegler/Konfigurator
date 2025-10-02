@@ -62,8 +62,8 @@ class _SectorWidgetState extends State<SectorWidget> {
   String? _irradianceUpperDelayError;
   String? _irradianceLowerThresholdError;
   String? _irradianceLowerDelayError;
-  String? _brightnessOnAutoAddressError;
-  String? _brightnessOffAutoAddressError;
+  String? _onAutoAddressError;
+  String? _offAutoAddressError;
   String? _louvreAngleZeroError;
   String? _louvreAngleHundredError;
   String? _louvreAngleAddressError;

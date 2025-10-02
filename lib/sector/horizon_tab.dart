@@ -108,9 +108,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                               },
                               onChanged: (p) {
                                 _mutate(() {
-                                  sector.horizonPoints.sort(
-                                    (a, b) => a.x.compareTo(b.x),
-                                  );
+                                  sector.ensureDefaultPoints();
                                 });
                               },
                               onAzErrorChange: (p, err) =>
@@ -152,9 +150,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                               },
                               onChanged: (p) {
                                 _mutate(() {
-                                  sector.ceilingPoints.sort(
-                                    (a, b) => a.x.compareTo(b.x),
-                                  );
+                                  sector.ensureDefaultPoints();
                                 });
                               },
                               onAzErrorChange: (p, err) =>
@@ -391,6 +387,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                   width: 120,
                   child: TextField(
                     controller: azCtrl,
+                    enabled: !p.isAzimuthLocked,
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: '-90 .. 90',
@@ -448,9 +445,11 @@ extension _HorizonLimitTab on _SectorWidgetState {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Entfernen',
-                  onPressed: () => onRemove(p),
+                  icon: Icon(
+                    p.isDefault ? Icons.lock_outline : Icons.delete_outline,
+                  ),
+                  tooltip: p.isDefault ? 'Fester Punkt' : 'Entfernen',
+                  onPressed: p.isDefault ? null : () => onRemove(p),
                 ),
               ],
             ),

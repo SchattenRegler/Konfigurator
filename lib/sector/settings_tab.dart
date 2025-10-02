@@ -416,18 +416,16 @@ extension _SettingsTab on _SectorWidgetState {
                 });
               },
             ),
-          if (sector.useBrightness && sector.useIrradiance)
             const SizedBox(height: 16),
-          if (sector.useBrightness && sector.useIrradiance)
             TextFormField(
-              initialValue: sector.brightnessOnAutoAddress,
+              initialValue: sector.onAutoAddress,
               decoration: InputDecoration(
                 labelText: 'Gruppenadresse Ein/Auto',
-                errorText: _brightnessOnAutoAddressError,
+                errorText: _onAutoAddressError,
               ),
               onChanged: (v) {
                 _mutate(() {
-                  sector.brightnessOnAutoAddress = v;
+                  sector.onAutoAddress = v;
                   final parts = v.split('/');
                   final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
                   final b = int.tryParse(parts.length > 1 ? parts[1] : '');
@@ -443,19 +441,17 @@ extension _SettingsTab on _SectorWidgetState {
                       c < 0 ||
                       c > 255 ||
                       (a == 0 && b == 0 && c == 0)) {
-                    _brightnessOnAutoAddressError =
+                    _onAutoAddressError =
                         'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
                   } else {
-                    _brightnessOnAutoAddressError = null;
+                    _onAutoAddressError = null;
                   }
                 });
               },
             ),
-          if (sector.useBrightness && sector.useIrradiance)
             const SizedBox(height: 16),
-          if (sector.useBrightness && sector.useIrradiance)
             DropdownButtonFormField<String>(
-              value: sector.brightnessOnAutoBehavior,
+              value: sector.onAutoBehavior,
               decoration: const InputDecoration(
                 labelText: 'Verhalten bei logischer 1',
               ),
@@ -466,22 +462,20 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (value) {
                 if (value == null) return;
                 _mutate(() {
-                  sector.brightnessOnAutoBehavior = value;
+                  sector.onAutoBehavior = value;
                 });
               },
             ),
-          if (sector.useBrightness && sector.useIrradiance)
             const SizedBox(height: 16),
-          if (sector.useBrightness && sector.useIrradiance)
             TextFormField(
-              initialValue: sector.brightnessOffAutoAddress,
+              initialValue: sector.offAutoAddress,
               decoration: InputDecoration(
                 labelText: 'Gruppenadresse Aus/Auto',
-                errorText: _brightnessOffAutoAddressError,
+                errorText: _offAutoAddressError,
               ),
               onChanged: (v) {
                 _mutate(() {
-                  sector.brightnessOffAutoAddress = v;
+                  sector.offAutoAddress = v;
                   final parts = v.split('/');
                   final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
                   final b = int.tryParse(parts.length > 1 ? parts[1] : '');
@@ -497,19 +491,17 @@ extension _SettingsTab on _SectorWidgetState {
                       c < 0 ||
                       c > 255 ||
                       (a == 0 && b == 0 && c == 0)) {
-                    _brightnessOffAutoAddressError =
+                    _offAutoAddressError =
                         'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
                   } else {
-                    _brightnessOffAutoAddressError = null;
+                    _offAutoAddressError = null;
                   }
                 });
               },
             ),
-          if (sector.useBrightness && sector.useIrradiance)
             const SizedBox(height: 16),
-          if (sector.useBrightness && sector.useIrradiance)
             DropdownButtonFormField<String>(
-              value: sector.brightnessOffAutoBehavior,
+              value: sector.offAutoBehavior,
               decoration: const InputDecoration(
                 labelText: 'Verhalten bei logischer 1',
               ),
@@ -520,7 +512,7 @@ extension _SettingsTab on _SectorWidgetState {
               onChanged: (value) {
                 if (value == null) return;
                 _mutate(() {
-                  sector.brightnessOffAutoBehavior = value;
+                  sector.offAutoBehavior = value;
                 });
               },
             ),

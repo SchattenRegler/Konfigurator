@@ -7,8 +7,6 @@ double latitude = 0;
 double longitude = 0;
 
 String version = '0.8.0';
-String brightnessAddress = '';
-String irradianceAddress = '';
 
 // Azimuth/Elevation settings
 String azElOption = 'Internet';
@@ -23,6 +21,28 @@ List<Sector> sectors = [];
 
 // Weekly time switch programs
 List<TimeProgram> timePrograms = [];
+
+const double kLockedAzimuthTolerance = 1e-6;
+
+class LockedPointSpec {
+  final double azimuth;
+  final double defaultElevation;
+
+  const LockedPointSpec({
+    required this.azimuth,
+    required this.defaultElevation,
+  });
+}
+
+const List<LockedPointSpec> horizonLockedPointSpecs = [
+  LockedPointSpec(azimuth: -90, defaultElevation: 0),
+  LockedPointSpec(azimuth: 90, defaultElevation: 0),
+];
+
+const List<LockedPointSpec> ceilingLockedPointSpecs = [
+  LockedPointSpec(azimuth: -90, defaultElevation: 90),
+  LockedPointSpec(azimuth: 90, defaultElevation: 90),
+];
 
 class Sector {
   String guid;
@@ -54,10 +74,10 @@ class Sector {
   int? irradianceLowerThreshold;
   int? irradianceLowerDelay;
   String brightnessIrradianceLink;
-  String brightnessOnAutoAddress;
-  String brightnessOnAutoBehavior;
-  String brightnessOffAutoAddress;
-  String brightnessOffAutoBehavior;
+  String onAutoAddress;
+  String onAutoBehavior;
+  String offAutoAddress;
+  String offAutoBehavior;
   String facadeAddress;
   LatLng? facadeStart;
   LatLng? facadeEnd;
@@ -84,25 +104,116 @@ class Sector {
     this.sunBoolAddress = '',
     this.irradianceAddress = '',
     this.brightnessIrradianceLink = 'Und',
-    this.brightnessOnAutoAddress = '',
-    this.brightnessOnAutoBehavior = 'Auto',
-    this.brightnessOffAutoAddress = '',
-    this.brightnessOffAutoBehavior = 'Auto',
+    this.onAutoAddress = '',
+    this.onAutoBehavior = 'Auto',
+    this.offAutoAddress = '',
+    this.offAutoBehavior = 'Auto',
     this.facadeAddress = '',
     this.facadeStart,
     this.facadeEnd,
   }) : guid = guid ?? const Uuid().v4(),
-       horizonPoints = horizonPoints ?? [],
-       ceilingPoints = ceilingPoints ?? [] {
+       horizonPoints = ensureDefaultHorizonPoints(
+         horizonPoints != null
+             ? horizonPoints.map(clonePoint).toList()
+             : <Point>[],
+       ),
+       ceilingPoints = ensureDefaultCeilingPoints(
+         ceilingPoints != null
+             ? ceilingPoints.map(clonePoint).toList()
+             : <Point>[],
+       ) {
     nameNotifier = ValueNotifier<String>(name);
   }
 
   String get name => nameNotifier.value;
   set name(String value) => nameNotifier.value = value;
+
+  void ensureDefaultPoints() {
+    horizonPoints = ensureDefaultHorizonPoints(horizonPoints);
+    ceilingPoints = ensureDefaultCeilingPoints(ceilingPoints);
+  }
 }
 
 class Point {
   double x;
   double y;
-  Point({this.x = 0, this.y = 0});
+  bool isAzimuthLocked;
+  bool isDefault;
+
+  Point({
+    this.x = 0,
+    this.y = 0,
+    this.isAzimuthLocked = false,
+    this.isDefault = false,
+  });
+}
+
+Point clonePoint(Point source) => Point(
+  x: source.x,
+  y: source.y,
+  isAzimuthLocked: source.isAzimuthLocked,
+  isDefault: source.isDefault,
+);
+
+List<Point> ensureDefaultHorizonPoints(List<Point> points) =>
+    _ensureLockedPoints(points, horizonLockedPointSpecs);
+
+List<Point> ensureDefaultCeilingPoints(List<Point> points) =>
+    _ensureLockedPoints(points, ceilingLockedPointSpecs);
+
+List<Point> _ensureLockedPoints(
+  List<Point> points,
+  List<LockedPointSpec> specs,
+) {
+  for (final spec in specs) {
+    final matches = points
+        .where((p) => isAzimuthClose(p.x, spec.azimuth))
+        .toList();
+    if (matches.isNotEmpty) {
+      final anchor = matches.firstWhere(
+        (p) => p.isDefault,
+        orElse: () => matches.first,
+      );
+      for (final point in matches) {
+        final isAnchor = identical(point, anchor);
+        point.isDefault = isAnchor;
+        point.isAzimuthLocked = isAnchor;
+        if (isAnchor) {
+          point.x = spec.azimuth;
+        }
+      }
+    } else {
+      points.add(
+        Point(
+          x: spec.azimuth,
+          y: spec.defaultElevation,
+          isAzimuthLocked: true,
+          isDefault: true,
+        ),
+      );
+    }
+  }
+  points.sort(_lockedPointComparator);
+  return points;
+}
+
+bool isAzimuthClose(double a, double b) =>
+    (a - b).abs() < kLockedAzimuthTolerance;
+
+int _lockedPointComparator(Point a, Point b) {
+  final cmp = a.x.compareTo(b.x);
+  if (cmp != 0) return cmp;
+  final isNeg90 = isAzimuthClose(a.x, -90);
+  final isPos90 = isAzimuthClose(a.x, 90);
+
+  if (isNeg90) {
+    if (a.isDefault == b.isDefault) return 0;
+    return a.isDefault ? 1 : -1;
+  }
+  if (isPos90) {
+    if (a.isDefault == b.isDefault) return 0;
+    return a.isDefault ? -1 : 1;
+  }
+  if (a.isDefault == b.isDefault) return 0;
+  return a.isDefault ? -1 : 1;
 }

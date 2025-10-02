@@ -6,7 +6,6 @@ extension _LouvreTab on _SectorWidgetState {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 960;
-        final maxHeight = constraints.maxHeight;
         final fields = SizedBox(
           width: double.infinity,
           child: Column(

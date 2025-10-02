@@ -202,8 +202,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
     setState(() {
       version = root.getElement('Version')?.innerText ?? '';
-      brightnessAddress = root.getElement('BrightnessAddress')?.innerText ?? '';
-      irradianceAddress = root.getElement('IrradianceAddress')?.innerText ?? '';
       _latController.text = root.getElement('Latitude')?.innerText ?? '';
       _lngController.text = root.getElement('Longitude')?.innerText ?? '';
       azElOption = root.getElement('AzElOption')?.innerText ?? 'Internet';
@@ -312,24 +310,24 @@ class _ConfigScreenState extends State<ConfigScreen> {
           if (link != null && link.isNotEmpty) {
             s.brightnessIrradianceLink = link;
           }
-          s.brightnessOnAutoAddress =
-              sElem.getElement('BrightnessOnAutoAddress')?.innerText ?? '';
+          s.onAutoAddress =
+              sElem.getElement('OnAutoAddress')?.innerText ?? '';
           final onAutoBehavior = sElem
-              .getElement('BrightnessOnAutoBehavior')
+              .getElement('OnAutoBehavior')
               ?.innerText;
           if (onAutoBehavior != null && onAutoBehavior.isNotEmpty) {
             if (onAutoBehavior == 'Ein' || onAutoBehavior == 'Auto') {
-              s.brightnessOnAutoBehavior = onAutoBehavior;
+              s.onAutoBehavior = onAutoBehavior;
             }
           }
-          s.brightnessOffAutoAddress =
-              sElem.getElement('BrightnessOffAutoAddress')?.innerText ?? '';
+          s.offAutoAddress =
+              sElem.getElement('OffAutoAddress')?.innerText ?? '';
           final offAutoBehavior = sElem
-              .getElement('BrightnessOffAutoBehavior')
+              .getElement('OffAutoBehavior')
               ?.innerText;
           if (offAutoBehavior != null && offAutoBehavior.isNotEmpty) {
             if (offAutoBehavior == 'Aus' || offAutoBehavior == 'Auto') {
-              s.brightnessOffAutoBehavior = offAutoBehavior;
+              s.offAutoBehavior = offAutoBehavior;
             }
           }
           s.facadeAddress = sElem.getElement('FacadeAddress')?.innerText ?? '';
@@ -386,6 +384,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               s.ceilingPoints.add(Point(x: x, y: y));
             }
           }
+          s.ensureDefaultPoints();
           sectors.add(s);
         }
       }
@@ -538,8 +537,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
       'Konfiguration',
       nest: () {
         builder.element('Version', nest: version);
-        builder.element('BrightnessAddress', nest: brightnessAddress);
-        builder.element('IrradianceAddress', nest: irradianceAddress);
         builder.element('Latitude', nest: _latController.text);
         builder.element('Longitude', nest: _lngController.text);
         builder.element('AzElOption', nest: azElOption);
@@ -649,20 +646,20 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     nest: s.brightnessIrradianceLink,
                   );
                   builder.element(
-                    'BrightnessOnAutoAddress',
-                    nest: s.brightnessOnAutoAddress,
+                    'OnAutoAddress',
+                    nest: s.onAutoAddress,
                   );
                   builder.element(
-                    'BrightnessOnAutoBehavior',
-                    nest: s.brightnessOnAutoBehavior,
+                    'OnAutoBehavior',
+                    nest: s.onAutoBehavior,
                   );
                   builder.element(
-                    'BrightnessOffAutoAddress',
-                    nest: s.brightnessOffAutoAddress,
+                    'OffAutoAddress',
+                    nest: s.offAutoAddress,
                   );
                   builder.element(
-                    'BrightnessOffAutoBehavior',
-                    nest: s.brightnessOffAutoBehavior,
+                    'OffAutoBehavior',
+                    nest: s.offAutoBehavior,
                   );
                   builder.element('FacadeAddress', nest: s.facadeAddress);
                   builder.element(
