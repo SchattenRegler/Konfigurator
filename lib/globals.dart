@@ -14,6 +14,16 @@ String timeAddress = '';
 String azimuthAddress = '';
 String elevationAddress = '';
 
+// KNX connection
+String knxConnectionType = 'ROUTING';
+String knxIndividualAddress = '';
+String knxGatewayIp = '';
+String knxGatewayPort = '';
+String knxMulticastGroup = '';
+String knxMulticastPort = '';
+bool knxAutoReconnect = false;
+String knxAutoReconnectWait = '5';
+
 // Threshold linkage
 bool linkBrightnessIrradiance = false;
 

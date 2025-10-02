@@ -209,6 +209,40 @@ class _ConfigScreenState extends State<ConfigScreen> {
       timeAddress = root.getElement('TimeAddress')?.innerText ?? '';
       azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
       elevationAddress = root.getElement('ElevationAddress')?.innerText ?? '';
+      final connectionTypeRaw =
+          root.getElement('KnxConnectionType')?.innerText;
+      final connectionTypeStr = connectionTypeRaw?.trim();
+      if (connectionTypeStr != null && connectionTypeStr.isNotEmpty) {
+        knxConnectionType = connectionTypeStr;
+      } else {
+        knxConnectionType = 'ROUTING';
+      }
+      knxIndividualAddress =
+          root.getElement('KnxIndividualAddress')?.innerText ?? '';
+      knxGatewayIp = root.getElement('KnxGatewayIp')?.innerText ?? '';
+      knxGatewayPort = root.getElement('KnxGatewayPort')?.innerText ?? '';
+      knxMulticastGroup =
+          root.getElement('KnxMulticastGroup')?.innerText ?? '';
+      knxMulticastPort =
+          root.getElement('KnxMulticastPort')?.innerText ?? '';
+      final autoReconnectStr =
+          root.getElement('KnxAutoReconnect')?.innerText;
+      if (autoReconnectStr != null) {
+        knxAutoReconnect = autoReconnectStr.toLowerCase() == 'true';
+      }
+      final autoReconnectWaitStr =
+          root.getElement('KnxAutoReconnectWait')?.innerText;
+      if (autoReconnectWaitStr != null && autoReconnectWaitStr.isNotEmpty) {
+        knxAutoReconnectWait = autoReconnectWaitStr;
+      } else if (knxAutoReconnectWait.isEmpty) {
+        knxAutoReconnectWait = '5';
+      }
+      _knxIndividualAddressController.text = knxIndividualAddress;
+      _knxGatewayIpController.text = knxGatewayIp;
+      _knxGatewayPortController.text = knxGatewayPort;
+      _knxMulticastGroupController.text = knxMulticastGroup;
+      _knxMulticastPortController.text = knxMulticastPort;
+      _knxAutoReconnectWaitController.text = knxAutoReconnectWait;
       // Sectors
       sectors.clear();
       final sectorsElem =
@@ -484,6 +518,17 @@ class _ConfigScreenState extends State<ConfigScreen> {
   // Standort (Lat/Lng)
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lngController = TextEditingController();
+  final TextEditingController _knxIndividualAddressController =
+      TextEditingController();
+  final TextEditingController _knxGatewayIpController = TextEditingController();
+  final TextEditingController _knxGatewayPortController =
+      TextEditingController();
+  final TextEditingController _knxMulticastGroupController =
+      TextEditingController();
+  final TextEditingController _knxMulticastPortController =
+      TextEditingController();
+  final TextEditingController _knxAutoReconnectWaitController =
+      TextEditingController();
 
   void _loadXmlContent(String content, {bool showSuccess = true}) {
     fromXml(content);
@@ -497,6 +542,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _knxIndividualAddressController.text = knxIndividualAddress;
+    _knxGatewayIpController.text = knxGatewayIp;
+    _knxGatewayPortController.text = knxGatewayPort;
+    _knxMulticastGroupController.text = knxMulticastGroup;
+    _knxMulticastPortController.text = knxMulticastPort;
+    _knxAutoReconnectWaitController.text = knxAutoReconnectWait;
     if (kIsWeb) {
       _keyDownSub = html.window.onKeyDown.listen((e) {
         final key = (e.key ?? '').toLowerCase();
@@ -544,6 +595,20 @@ class _ConfigScreenState extends State<ConfigScreen> {
         builder.element('TimeAddress', nest: timeAddress);
         builder.element('AzimuthAddress', nest: azimuthAddress);
         builder.element('ElevationAddress', nest: elevationAddress);
+        builder.element('KnxConnectionType', nest: knxConnectionType);
+        builder.element('KnxIndividualAddress', nest: knxIndividualAddress);
+        builder.element('KnxGatewayIp', nest: knxGatewayIp);
+        builder.element('KnxGatewayPort', nest: knxGatewayPort);
+        builder.element('KnxMulticastGroup', nest: knxMulticastGroup);
+        builder.element('KnxMulticastPort', nest: knxMulticastPort);
+        builder.element(
+          'KnxAutoReconnect',
+          nest: knxAutoReconnect.toString(),
+        );
+        builder.element(
+          'KnxAutoReconnectWait',
+          nest: knxAutoReconnectWait,
+        );
         builder.element(
           'Sectors',
           nest: () {
@@ -755,9 +820,28 @@ class _ConfigScreenState extends State<ConfigScreen> {
     return builder.buildDocument().toXmlString(pretty: true);
   }
 
-  Future<void> _saveAsXml() async {
-    _formKey.currentState?.save();
-    final xmlString = toXml();
+  String? _prepareXml() {
+    final formState = _formKey.currentState;
+    if (formState == null) {
+      return null;
+    }
+    if (!formState.validate()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bitte Eingaben prüfen.')),
+        );
+      }
+      return null;
+    }
+    formState.save();
+    return toXml();
+  }
+
+  Future<void> _saveAsXml({String? xmlString}) async {
+    final xml = xmlString ?? _prepareXml();
+    if (xml == null) {
+      return;
+    }
     if (kIsWeb) {
       // Prefer the File System Access API when available so we can overwrite next time
       final hasFileSystem = js_util.hasProperty(
@@ -786,7 +870,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
             js_util.callMethod(fileHandle, 'createWritable', []),
           );
           await js_util.promiseToFuture(
-            js_util.callMethod(writable, 'write', [xmlString]),
+            js_util.callMethod(writable, 'write', [xml]),
           );
           await js_util.promiseToFuture(
             js_util.callMethod(writable, 'close', []),
@@ -807,7 +891,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       }
 
       // Fallback: trigger download using AnchorElement (cannot overwrite automatically later)
-      final bytes = utf8.encode(xmlString);
+      final bytes = utf8.encode(xml);
       final blob = html.Blob([bytes], 'text/xml');
       final url = html.Url.createObjectUrlFromBlob(blob);
       //final anchor = html.AnchorElement(href: url)
@@ -829,7 +913,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       );
       if (result != null) {
         final file = File(result);
-        await file.writeAsString(xmlString);
+        await file.writeAsString(xml);
         _lastXmlPath = result; // remember for quick save
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -841,8 +925,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
   }
 
   Future<void> _saveXml() async {
-    _formKey.currentState?.save();
-    final xmlString = toXml();
+    final xmlString = _prepareXml();
+    if (xmlString == null) {
+      return;
+    }
 
     if (kIsWeb) {
       final hasFileSystem = js_util.hasProperty(
@@ -872,7 +958,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
           _webFileHandle = null;
         }
       }
-      await _saveAsXml();
+      await _saveAsXml(xmlString: xmlString);
       return;
     } else {
       // Native/Desktop: overwrite the last path if we have one; otherwise Save As
@@ -885,7 +971,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
           );
         }
       } else {
-        await _saveAsXml();
+        await _saveAsXml(xmlString: xmlString);
       }
     }
   }
@@ -1436,6 +1522,43 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                     azElOption: azElOption,
                                     onAzElOptionChanged: (value) =>
                                         setState(() => azElOption = value),
+                                    connectionType: knxConnectionType,
+                                    onConnectionTypeChanged: (value) =>
+                                        setState(() {
+                                          knxConnectionType = value;
+                                          if (value == 'ROUTING') {
+                                            knxAutoReconnect = false;
+                                          }
+                                        }),
+                                    individualAddressController:
+                                        _knxIndividualAddressController,
+                                    gatewayIpController:
+                                        _knxGatewayIpController,
+                                    gatewayPortController:
+                                        _knxGatewayPortController,
+                                    multicastGroupController:
+                                        _knxMulticastGroupController,
+                                    multicastPortController:
+                                        _knxMulticastPortController,
+                                    autoReconnect: knxAutoReconnect,
+                                    onAutoReconnectChanged: (value) =>
+                                        setState(() {
+                                          knxAutoReconnect = value;
+                                          if (value &&
+                                              _knxAutoReconnectWaitController
+                                                  .text.isEmpty) {
+                                            final fallback =
+                                                knxAutoReconnectWait
+                                                        .isNotEmpty
+                                                    ? knxAutoReconnectWait
+                                                    : '5';
+                                            _knxAutoReconnectWaitController
+                                                .text = fallback;
+                                            knxAutoReconnectWait = fallback;
+                                          }
+                                        }),
+                                    autoReconnectWaitController:
+                                        _knxAutoReconnectWaitController,
                                   )
                             : selectedPage == 'Sektoren'
                             ? SingleChildScrollView(
@@ -1505,6 +1628,33 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     azElOption: azElOption,
                     onAzElOptionChanged:
                         (value) => setState(() => azElOption = value),
+                    connectionType: knxConnectionType,
+                    onConnectionTypeChanged: (value) => setState(() {
+                      knxConnectionType = value;
+                      if (value == 'ROUTING') {
+                        knxAutoReconnect = false;
+                      }
+                    }),
+                    individualAddressController:
+                        _knxIndividualAddressController,
+                    gatewayIpController: _knxGatewayIpController,
+                    gatewayPortController: _knxGatewayPortController,
+                    multicastGroupController: _knxMulticastGroupController,
+                    multicastPortController: _knxMulticastPortController,
+                    autoReconnect: knxAutoReconnect,
+                    onAutoReconnectChanged: (value) => setState(() {
+                      knxAutoReconnect = value;
+                      if (value &&
+                          _knxAutoReconnectWaitController.text.isEmpty) {
+                        final fallback = knxAutoReconnectWait.isNotEmpty
+                            ? knxAutoReconnectWait
+                            : '5';
+                        _knxAutoReconnectWaitController.text = fallback;
+                        knxAutoReconnectWait = fallback;
+                      }
+                    }),
+                    autoReconnectWaitController:
+                        _knxAutoReconnectWaitController,
                   )
                 : selectedPage == 'Sektoren'
                 ? (editingSectorIndex != null
