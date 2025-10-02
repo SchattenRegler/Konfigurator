@@ -85,6 +85,7 @@ class _SectorWidgetState extends State<SectorWidget> {
     _horizonElController = TextEditingController();
     _ceilingAzController = TextEditingController();
     _ceilingElController = TextEditingController();
+    sector.ensureDefaultPoints();
     _syncPointEditors();
   }
 
@@ -140,7 +141,7 @@ class _SectorWidgetState extends State<SectorWidget> {
     setState(() {
       final p = Point(x: 0, y: 0);
       sector.horizonPoints.add(p);
-      sector.horizonPoints.sort((a, b) => a.x.compareTo(b.x));
+      sector.ensureDefaultPoints();
       _horizonAzCtrls[p] = TextEditingController(text: '0');
       _horizonElCtrls[p] = TextEditingController(text: '0');
       _horizonAzErrors[p] = null;
@@ -152,7 +153,7 @@ class _SectorWidgetState extends State<SectorWidget> {
     setState(() {
       final p = Point(x: 0, y: 0);
       sector.ceilingPoints.add(p);
-      sector.ceilingPoints.sort((a, b) => a.x.compareTo(b.x));
+      sector.ensureDefaultPoints();
       _ceilingAzCtrls[p] = TextEditingController(text: '0');
       _ceilingElCtrls[p] = TextEditingController(text: '0');
       _ceilingAzErrors[p] = null;
@@ -228,6 +229,8 @@ class _SectorWidgetState extends State<SectorWidget> {
 
       final data = parsed[selected]!;
       setState(() {
+        final previousHorizon = sector.horizonPoints.map(clonePoint).toList();
+        final previousCeiling = sector.ceilingPoints.map(clonePoint).toList();
         // Replace existing points with imported ones
         // Clear controllers to avoid leaks for removed points
         for (final c in _horizonAzCtrls.values) {
@@ -252,10 +255,18 @@ class _SectorWidgetState extends State<SectorWidget> {
         _ceilingAzErrors.clear();
         _ceilingElErrors.clear();
 
-        sector.horizonPoints = List<Point>.from(data.horizon)
-          ..sort((a, b) => a.x.compareTo(b.x));
-        sector.ceilingPoints = List<Point>.from(data.ceiling)
-          ..sort((a, b) => a.x.compareTo(b.x));
+        sector.horizonPoints = _buildPointsFromImport(
+          imported: data.horizon,
+          existing: previousHorizon,
+          specs: horizonLockedPointSpecs,
+          ensureFn: ensureDefaultHorizonPoints,
+        );
+        sector.ceilingPoints = _buildPointsFromImport(
+          imported: data.ceiling,
+          existing: previousCeiling,
+          specs: ceilingLockedPointSpecs,
+          ensureFn: ensureDefaultCeilingPoints,
+        );
         _syncPointEditors();
       });
 
@@ -310,17 +321,20 @@ class _SectorWidgetState extends State<SectorWidget> {
         continue;
       }
 
-      String c2 = (parts.length > 2 ? parts[2] : '').trim().replaceAll('"', '');
-      String c3 = (parts.length > 3 ? parts[3] : '').trim().replaceAll('"', '');
-      final az = double.tryParse(c2.replaceAll(',', '.'));
-      final el = double.tryParse(c3.replaceAll(',', '.'));
-      if (az == null || el == null) continue;
-
-      final p = Point(x: az, y: el);
-      if (isHorizon) {
-        horizon.putIfAbsent(sectorNo, () => <Point>[]).add(p);
-      } else {
-        ceiling.putIfAbsent(sectorNo, () => <Point>[]).add(p);
+      for (int i = 2; i + 1 < parts.length; i += 2) {
+        final azStr = parts[i].trim().replaceAll('"', '');
+        final elStr = parts[i + 1].trim().replaceAll('"', '');
+        final az = double.tryParse(azStr.replaceAll(',', '.'));
+        final el = double.tryParse(elStr.replaceAll(',', '.'));
+        if (az == null || el == null) {
+          continue;
+        }
+        final p = Point(x: az, y: el);
+        if (isHorizon) {
+          horizon.putIfAbsent(sectorNo, () => <Point>[]).add(p);
+        } else {
+          ceiling.putIfAbsent(sectorNo, () => <Point>[]).add(p);
+        }
       }
     }
 
@@ -333,6 +347,68 @@ class _SectorWidgetState extends State<SectorWidget> {
       );
     }
     return out;
+  }
+
+  List<Point> _buildPointsFromImport({
+    required List<Point> imported,
+    required List<Point> existing,
+    required List<LockedPointSpec> specs,
+    required List<Point> Function(List<Point>) ensureFn,
+  }) {
+    final consumed = <double, bool>{
+      for (final spec in specs) spec.azimuth: false,
+    };
+    final anchors = <Point>[];
+    for (final spec in specs) {
+      final existingAnchor = _findExistingAnchor(existing, spec);
+      anchors.add(
+        Point(
+          x: spec.azimuth,
+          y: existingAnchor?.y ?? spec.defaultElevation,
+          isAzimuthLocked: true,
+          isDefault: true,
+        ),
+      );
+    }
+
+    final result = <Point>[...anchors];
+    for (final point in imported) {
+      final spec = _matchSpec(point.x, specs);
+      if (spec != null && consumed[spec.azimuth] == false) {
+        final anchorIndex = specs.indexOf(spec);
+        result[anchorIndex].y = point.y;
+        consumed[spec.azimuth] = true;
+      } else {
+        result.add(Point(x: point.x, y: point.y));
+      }
+    }
+
+    return ensureFn(result);
+  }
+
+  Point? _findExistingAnchor(List<Point> existing, LockedPointSpec spec) {
+    Point? defaultMatch;
+    Point? firstMatch;
+    for (final point in existing) {
+      if (!isAzimuthClose(point.x, spec.azimuth)) {
+        continue;
+      }
+      firstMatch ??= point;
+      if (point.isDefault) {
+        defaultMatch = point;
+        break;
+      }
+    }
+    return defaultMatch ?? firstMatch;
+  }
+
+  LockedPointSpec? _matchSpec(double azimuth, List<LockedPointSpec> specs) {
+    for (final spec in specs) {
+      if (isAzimuthClose(azimuth, spec.azimuth)) {
+        return spec;
+      }
+    }
+    return null;
   }
 
   // Simple CSV splitter handling quoted delimiters
@@ -411,8 +487,7 @@ class _SectorWidgetState extends State<SectorWidget> {
   @override
   Widget build(BuildContext context) {
     _syncPointEditors();
-    sector.horizonPoints.sort((a, b) => a.x.compareTo(b.x));
-    sector.ceilingPoints.sort((a, b) => a.x.compareTo(b.x));
+    sector.ensureDefaultPoints();
 
     final tabs = <Tab>[
       const Tab(text: 'Einstellungen'),
