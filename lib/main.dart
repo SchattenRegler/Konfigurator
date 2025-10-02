@@ -11,6 +11,7 @@ import 'package:universal_html/js_util.dart' as js_util;
 import 'sector.dart';
 import 'globals.dart';
 import 'location_dialog.dart';
+import 'general.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
@@ -913,57 +914,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
   }
 
-  Widget _buildLocationSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Standort'),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _latController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Breitengrad (Lat)',
-                ),
-                onSaved: (v) => latitude = double.tryParse(v ?? '') ?? 0,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                controller: _lngController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                decoration: const InputDecoration(labelText: 'Längengrad'),
-                onSaved: (v) => longitude = double.tryParse(v ?? '') ?? 0,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: _pickLocation,
-              icon: const Icon(Icons.map),
-              label: const Text('Auf Karte wählen'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
@@ -1478,85 +1428,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 }),
                               )
                             : selectedPage == 'Allgemein'
-                            ? Form(
-                                key: _formKey,
-                                child: SingleChildScrollView(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Version
-                                      TextFormField(
-                                        decoration: const InputDecoration(
-                                          labelText: 'Version',
-                                        ),
-                                        initialValue: version,
-                                        enabled: false,
-                                      ),
-                                      const SizedBox(height: 24),
-                                      // Standort (Lat/Lng)
-                                      _buildLocationSection(),
-                                      const SizedBox(height: 24),
-                                      // Azimut/Elevation section
-                                      const Text('Azimut/Elevation'),
-                                      DropdownButtonFormField<String>(
-                                        value: azElOption,
-                                        items: const [
-                                          DropdownMenuItem(
-                                            value: 'Internet',
-                                            child: Text(
-                                              'Zeit aus dem Internet beziehen',
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'BusTime',
-                                            child: Text(
-                                              'Zeit vom Bus beziehen',
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'BusAzEl',
-                                            child: Text(
-                                              'Azimut / Elevation vom Bus beziehen',
-                                            ),
-                                          ),
-                                        ],
-                                        onChanged: (v) =>
-                                            setState(() => azElOption = v!),
-                                      ),
-                                      if (azElOption == 'BusTime') ...[
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          decoration: const InputDecoration(
-                                            labelText: 'Gruppenadresse Zeit',
-                                          ),
-                                          onSaved: (v) => timeAddress = v ?? '',
-                                        ),
-                                      ],
-                                      if (azElOption == 'BusAzEl') ...[
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          decoration: const InputDecoration(
-                                            labelText: 'Gruppenadresse Azimut',
-                                          ),
-                                          onSaved: (v) =>
-                                              azimuthAddress = v ?? '',
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TextFormField(
-                                          decoration: const InputDecoration(
-                                            labelText:
-                                                'Gruppenadresse Elevation',
-                                          ),
-                                          onSaved: (v) =>
-                                              elevationAddress = v ?? '',
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              )
+                                ? GeneralPage(
+                                    formKey: _formKey,
+                                    latController: _latController,
+                                    lngController: _lngController,
+                                    onPickLocation: _pickLocation,
+                                    azElOption: azElOption,
+                                    onAzElOptionChanged: (value) =>
+                                        setState(() => azElOption = value),
+                                  )
                             : selectedPage == 'Sektoren'
                             ? SingleChildScrollView(
                                 padding: const EdgeInsets.all(16),
@@ -1617,75 +1497,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     ],
                   )
                 : selectedPage == 'Allgemein'
-                ? Form(
-                    key: _formKey,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Version
-                          TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Version',
-                            ),
-                            initialValue: version,
-                            enabled: false,
-                          ),
-                          const SizedBox(height: 24),
-                          // Standort (Lat/Lng)
-                          _buildLocationSection(),
-                          const SizedBox(height: 24),
-                          // Azimut/Elevation section
-                          const Text('Azimut/Elevation'),
-                          DropdownButtonFormField<String>(
-                            value: azElOption,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'Internet',
-                                child: Text('Zeit aus dem Internet beziehen'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'BusTime',
-                                child: Text('Zeit vom Bus beziehen'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'BusAzEl',
-                                child: Text(
-                                  'Azimut / Elevation vom Bus beziehen',
-                                ),
-                              ),
-                            ],
-                            onChanged: (v) => setState(() => azElOption = v!),
-                          ),
-                          if (azElOption == 'BusTime') ...[
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Gruppenadresse Zeit',
-                              ),
-                              onSaved: (v) => timeAddress = v ?? '',
-                            ),
-                          ],
-                          if (azElOption == 'BusAzEl') ...[
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Gruppenadresse Azimut',
-                              ),
-                              onSaved: (v) => azimuthAddress = v ?? '',
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              decoration: const InputDecoration(
-                                labelText: 'Gruppenadresse Elevation',
-                              ),
-                              onSaved: (v) => elevationAddress = v ?? '',
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                ? GeneralPage(
+                    formKey: _formKey,
+                    latController: _latController,
+                    lngController: _lngController,
+                    onPickLocation: _pickLocation,
+                    azElOption: azElOption,
+                    onAzElOptionChanged:
+                        (value) => setState(() => azElOption = value),
                   )
                 : selectedPage == 'Sektoren'
                 ? (editingSectorIndex != null
