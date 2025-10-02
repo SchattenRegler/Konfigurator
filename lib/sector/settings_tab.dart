@@ -169,7 +169,7 @@ extension _SettingsTab on _SectorWidgetState {
                     _brightnessUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
-                } else if(val <= (sector.brightnessLowerThreshold ?? -1)) {
+                } else if (val <= (sector.brightnessLowerThreshold ?? -1)) {
                   _mutate(() {
                     _brightnessUpperThresholdError =
                         'Muss grösser als der Schwellwert Hell --> Dunkel sein';
@@ -221,7 +221,7 @@ extension _SettingsTab on _SectorWidgetState {
                     _brightnessLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
-                } else if(val >= (sector.brightnessUpperThreshold ?? -1)) {
+                } else if (val >= (sector.brightnessUpperThreshold ?? -1)) {
                   _mutate(() {
                     _brightnessLowerThresholdError =
                         'Muss kleiner als der Schwellwert Dunkel --> Hell sein';
@@ -309,7 +309,7 @@ extension _SettingsTab on _SectorWidgetState {
                     _irradianceUpperThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
-                } else if(val <= (sector.irradianceLowerThreshold ?? -1)) {
+                } else if (val <= (sector.irradianceLowerThreshold ?? -1)) {
                   _mutate(() {
                     _irradianceUpperThresholdError =
                         'Muss grösser als der Schwellwert Hoch --> Tief sein';
@@ -361,7 +361,7 @@ extension _SettingsTab on _SectorWidgetState {
                     _irradianceLowerThresholdError =
                         'Bitte gültigen Wert eingeben';
                   });
-                } else if(val >= (sector.irradianceUpperThreshold ?? -1)) {
+                } else if (val >= (sector.irradianceUpperThreshold ?? -1)) {
                   _mutate(() {
                     _irradianceLowerThresholdError =
                         'Muss kleiner als der Schwellwert Tief --> Hoch sein';
@@ -413,6 +413,114 @@ extension _SettingsTab on _SectorWidgetState {
                 if (v == null) return;
                 _mutate(() {
                   sector.brightnessIrradianceLink = v;
+                });
+              },
+            ),
+          if (sector.useBrightness && sector.useIrradiance)
+            const SizedBox(height: 16),
+          if (sector.useBrightness && sector.useIrradiance)
+            TextFormField(
+              initialValue: sector.brightnessOnAutoAddress,
+              decoration: InputDecoration(
+                labelText: 'Gruppenadresse Ein/Auto',
+                errorText: _brightnessOnAutoAddressError,
+              ),
+              onChanged: (v) {
+                _mutate(() {
+                  sector.brightnessOnAutoAddress = v;
+                  final parts = v.split('/');
+                  final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+                  final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+                  final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+                  if (parts.length != 3 ||
+                      a == null ||
+                      a < 0 ||
+                      a > 31 ||
+                      b == null ||
+                      b < 0 ||
+                      b > 7 ||
+                      c == null ||
+                      c < 0 ||
+                      c > 255 ||
+                      (a == 0 && b == 0 && c == 0)) {
+                    _brightnessOnAutoAddressError =
+                        'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+                  } else {
+                    _brightnessOnAutoAddressError = null;
+                  }
+                });
+              },
+            ),
+          if (sector.useBrightness && sector.useIrradiance)
+            const SizedBox(height: 16),
+          if (sector.useBrightness && sector.useIrradiance)
+            DropdownButtonFormField<String>(
+              value: sector.brightnessOnAutoBehavior,
+              decoration: const InputDecoration(
+                labelText: 'Verhalten bei logischer 1',
+              ),
+              items: const [
+                DropdownMenuItem(value: 'Ein', child: Text('Ein')),
+                DropdownMenuItem(value: 'Auto', child: Text('Auto')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                _mutate(() {
+                  sector.brightnessOnAutoBehavior = value;
+                });
+              },
+            ),
+          if (sector.useBrightness && sector.useIrradiance)
+            const SizedBox(height: 16),
+          if (sector.useBrightness && sector.useIrradiance)
+            TextFormField(
+              initialValue: sector.brightnessOffAutoAddress,
+              decoration: InputDecoration(
+                labelText: 'Gruppenadresse Aus/Auto',
+                errorText: _brightnessOffAutoAddressError,
+              ),
+              onChanged: (v) {
+                _mutate(() {
+                  sector.brightnessOffAutoAddress = v;
+                  final parts = v.split('/');
+                  final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+                  final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+                  final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+                  if (parts.length != 3 ||
+                      a == null ||
+                      a < 0 ||
+                      a > 31 ||
+                      b == null ||
+                      b < 0 ||
+                      b > 7 ||
+                      c == null ||
+                      c < 0 ||
+                      c > 255 ||
+                      (a == 0 && b == 0 && c == 0)) {
+                    _brightnessOffAutoAddressError =
+                        'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+                  } else {
+                    _brightnessOffAutoAddressError = null;
+                  }
+                });
+              },
+            ),
+          if (sector.useBrightness && sector.useIrradiance)
+            const SizedBox(height: 16),
+          if (sector.useBrightness && sector.useIrradiance)
+            DropdownButtonFormField<String>(
+              value: sector.brightnessOffAutoBehavior,
+              decoration: const InputDecoration(
+                labelText: 'Verhalten bei logischer 1',
+              ),
+              items: const [
+                DropdownMenuItem(value: 'Aus', child: Text('Aus')),
+                DropdownMenuItem(value: 'Auto', child: Text('Auto')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                _mutate(() {
+                  sector.brightnessOffAutoBehavior = value;
                 });
               },
             ),

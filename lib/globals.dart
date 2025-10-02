@@ -54,6 +54,10 @@ class Sector {
   int? irradianceLowerThreshold;
   int? irradianceLowerDelay;
   String brightnessIrradianceLink;
+  String brightnessOnAutoAddress;
+  String brightnessOnAutoBehavior;
+  String brightnessOffAutoAddress;
+  String brightnessOffAutoBehavior;
   String facadeAddress;
   LatLng? facadeStart;
   LatLng? facadeEnd;
@@ -80,6 +84,10 @@ class Sector {
     this.sunBoolAddress = '',
     this.irradianceAddress = '',
     this.brightnessIrradianceLink = 'Und',
+    this.brightnessOnAutoAddress = '',
+    this.brightnessOnAutoBehavior = 'Auto',
+    this.brightnessOffAutoAddress = '',
+    this.brightnessOffAutoBehavior = 'Auto',
     this.facadeAddress = '',
     this.facadeStart,
     this.facadeEnd,

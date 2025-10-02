@@ -6,6 +6,7 @@ extension _LouvreTab on _SectorWidgetState {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 960;
+        final maxHeight = constraints.maxHeight;
         final fields = SizedBox(
           width: double.infinity,
           child: Column(
@@ -234,23 +235,26 @@ extension _LouvreTab on _SectorWidgetState {
         final preview = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AspectRatio(
-              aspectRatio: 3 / 4,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.outline.withOpacity(0.25),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight - 154),
+              child: AspectRatio(
+                aspectRatio: 1 / 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outline.withOpacity(0.25),
+                    ),
                   ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: _LouvreSlatPreview(
-                    spacing: sector.louvreSpacing,
-                    depth: sector.louvreDepth,
-                    angleDegrees: currentAngle,
-                    slatCount: 10,
+                  child: Padding(
+                    padding: const EdgeInsets.all(0),
+                    child: _LouvreSlatPreview(
+                      spacing: sector.louvreSpacing,
+                      depth: sector.louvreDepth,
+                      angleDegrees: currentAngle,
+                      slatCount: 10,
+                    ),
                   ),
                 ),
               ),
@@ -284,7 +288,9 @@ extension _LouvreTab on _SectorWidgetState {
         );
 
         final content = isNarrow
-            ? Column(
+            ? SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   fields,
@@ -292,21 +298,24 @@ extension _LouvreTab on _SectorWidgetState {
                   previewContainer,
                 ],
               )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Align(alignment: Alignment.topLeft, child: fields),
-                  ),
-                  const SizedBox(width: 32),
-                  Expanded(child: previewContainer),
-                ],
-              );
+            )
+            : Padding(
+                padding: const EdgeInsets.all(16), 
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(alignment: Alignment.topLeft, child: fields),
+                    ),
+                    const SizedBox(width: 32),
+                    Expanded(
+                      child: previewContainer,
+                    ),
+                  ],
+                ),
+            );
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: content,
-        );
+        return content;
       },
     );
   }
@@ -357,16 +366,12 @@ class _LouvreSlatPreview extends StatelessWidget {
         final safeSpacing = spacing.isFinite && spacing >= 0
             ? spacing
             : safeDepth * 0.6;
-        final scale = (slatWidth / depth) * safeSpacing * 3 < constraints.maxHeight ? (slatWidth / depth) : constraints.maxHeight/(safeSpacing*3);
-        final slatHeight = safeDepth * scale;
-        final totalDrawHeight = slatHeight * slatCount;
-        final verticalOffset = max(
-          0.0,
-          (constraints.maxHeight - totalDrawHeight) / 2,
-        );
+        final scale = (slatWidth / safeDepth) * safeSpacing * 3 < constraints.maxHeight ? (slatWidth / safeDepth) : constraints.maxHeight/(safeSpacing*3.5);
+        final slatHeight = (safeDepth / 264.8 * 18.2) * scale;
+        final verticalOffset = max(0.0, safeDepth * scale / 4);
         final horizontalOffset = max(
           0.0,
-          (constraints.maxWidth - depth * scale) / 2,
+          (constraints.maxWidth - safeDepth * scale) / 2,
         );
         final rotationRadians = ((90 - angleDegrees).clamp(-90, 90)) * pi / 180;
 
@@ -376,15 +381,15 @@ class _LouvreSlatPreview extends StatelessWidget {
             children: [
               for (int i = 0; i < slatCount; i++)
                 Positioned(
-                  top: verticalOffset + i * (safeSpacing * scale),
+                  top:  i * (safeSpacing * scale) - verticalOffset,
                   left: horizontalOffset,
-                  width: depth * scale,
+                  width: safeDepth * scale,
                   height: slatHeight,
                   child: Transform.rotate(
                     angle: rotationRadians,
                     alignment: Alignment.center,
                     child: SvgPicture.asset(
-                      '/blind/slat.svg',
+                      'assets/blind/slat.svg',
                       fit: BoxFit.fill,
                     ),
                   ),

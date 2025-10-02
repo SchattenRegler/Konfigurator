@@ -312,6 +312,26 @@ class _ConfigScreenState extends State<ConfigScreen> {
           if (link != null && link.isNotEmpty) {
             s.brightnessIrradianceLink = link;
           }
+          s.brightnessOnAutoAddress =
+              sElem.getElement('BrightnessOnAutoAddress')?.innerText ?? '';
+          final onAutoBehavior = sElem
+              .getElement('BrightnessOnAutoBehavior')
+              ?.innerText;
+          if (onAutoBehavior != null && onAutoBehavior.isNotEmpty) {
+            if (onAutoBehavior == 'Ein' || onAutoBehavior == 'Auto') {
+              s.brightnessOnAutoBehavior = onAutoBehavior;
+            }
+          }
+          s.brightnessOffAutoAddress =
+              sElem.getElement('BrightnessOffAutoAddress')?.innerText ?? '';
+          final offAutoBehavior = sElem
+              .getElement('BrightnessOffAutoBehavior')
+              ?.innerText;
+          if (offAutoBehavior != null && offAutoBehavior.isNotEmpty) {
+            if (offAutoBehavior == 'Aus' || offAutoBehavior == 'Auto') {
+              s.brightnessOffAutoBehavior = offAutoBehavior;
+            }
+          }
           s.facadeAddress = sElem.getElement('FacadeAddress')?.innerText ?? '';
           // GUID
           final guid = sElem.getElement('GUID')?.innerText;
@@ -627,6 +647,22 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   builder.element(
                     'BrightnessIrradianceLink',
                     nest: s.brightnessIrradianceLink,
+                  );
+                  builder.element(
+                    'BrightnessOnAutoAddress',
+                    nest: s.brightnessOnAutoAddress,
+                  );
+                  builder.element(
+                    'BrightnessOnAutoBehavior',
+                    nest: s.brightnessOnAutoBehavior,
+                  );
+                  builder.element(
+                    'BrightnessOffAutoAddress',
+                    nest: s.brightnessOffAutoAddress,
+                  );
+                  builder.element(
+                    'BrightnessOffAutoBehavior',
+                    nest: s.brightnessOffAutoBehavior,
                   );
                   builder.element('FacadeAddress', nest: s.facadeAddress);
                   builder.element(
