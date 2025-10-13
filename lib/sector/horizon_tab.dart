@@ -117,7 +117,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
                             ),
                             const DividerWithText(
                               text: 'Deckenpunkte',
-                              padding: EdgeInsets.symmetric(vertical: 12),
+                              padding: EdgeInsets.symmetric(vertical: 16),
                             ),
                             Align(
                               alignment: Alignment.centerRight,

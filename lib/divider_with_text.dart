@@ -4,7 +4,7 @@ class DividerWithText extends StatelessWidget {
   const DividerWithText({
     super.key,
     required this.text,
-    this.padding = const EdgeInsets.symmetric(vertical: 24),
+    this.padding = const EdgeInsets.symmetric(vertical: 16),
     this.lineThickness = 1,
   });
 
