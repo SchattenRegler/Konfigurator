@@ -13,6 +13,7 @@ String azElOption = 'Internet';
 String timeAddress = '';
 String azimuthAddress = '';
 String elevationAddress = '';
+String azElTimezone = 'Europe/Zurich';
 
 // KNX connection
 String knxConnectionType = 'ROUTING';
