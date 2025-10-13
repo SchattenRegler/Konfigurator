@@ -5,7 +5,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -35,8 +35,7 @@ extension _HorizonLimitTab on _SectorWidgetState {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        // Legend Row
+        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -116,20 +115,17 @@ extension _HorizonLimitTab on _SectorWidgetState {
                               onElErrorChange: (p, err) =>
                                   _mutate(() => _horizonElErrors[p] = err),
                             ),
-                            const Divider(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Deckenpunkte',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                TextButton.icon(
-                                  onPressed: _addCeilingPoint,
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Neuer Punkt'),
-                                ),
-                              ],
+                            const DividerWithText(
+                              text: 'Deckenpunkte',
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: _addCeilingPoint,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Neuer Punkt'),
+                              ),
                             ),
                             const SizedBox(height: 6),
                             _buildPointsTable(

@@ -11,7 +11,10 @@ extension _LouvreTab on _SectorWidgetState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
+              const DividerWithText(
+                text: 'Lamellengeometrie',
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
               TextFormField(
                 key: ValueKey('louvre-spacing-${sector.guid}'),
                 initialValue: _formatNumber(
@@ -59,7 +62,10 @@ extension _LouvreTab on _SectorWidgetState {
                   }
                 },
               ),
-              const SizedBox(height: 24),
+              const DividerWithText(
+                text: 'Winkelbegrenzungen',
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
               TextFormField(
                 key: ValueKey('louvre-angle-zero-${sector.guid}'),
                 initialValue: _formatNumber(sector.louvreAngleAtZero),
@@ -152,7 +158,10 @@ extension _LouvreTab on _SectorWidgetState {
                   });
                 },
               ),
-              const SizedBox(height: 24),
+              const DividerWithText(
+                text: 'Verhalten',
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
               TextFormField(
                 key: ValueKey('louvre-min-change-${sector.guid}'),
                 initialValue: _formatNumber(sector.louvreMinimumChange),
@@ -234,8 +243,12 @@ extension _LouvreTab on _SectorWidgetState {
         final preview = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const DividerWithText(
+              text: 'Vorschau',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
             ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: constraints.maxHeight - 154),
+              constraints: BoxConstraints(maxHeight: constraints.maxHeight - 190),
               child: AspectRatio(
                 aspectRatio: 1 / 2,
                 child: DecoratedBox(

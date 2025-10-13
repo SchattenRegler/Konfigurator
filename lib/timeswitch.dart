@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
+import 'divider_with_text.dart';
 
 enum CommandType { oneBit, oneByte }
 
@@ -74,6 +75,10 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const DividerWithText(
+            text: 'Allgemein',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           TextFormField(
             initialValue: widget.program.guid,
             decoration: const InputDecoration(labelText: 'GUID'),
@@ -90,22 +95,22 @@ class _TimeProgramWidgetState extends State<TimeProgramWidget> {
               );
             },
           ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Befehle', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.add),
-                tooltip: 'Befehl hinzufügen',
-                onPressed: () => setState(() {
-                  final defaultGa = widget.program.commands.isNotEmpty
-                      ? widget.program.commands.last.groupAddress
-                      : '';
-                  widget.program.commands.add(TimeCommand(groupAddress: defaultGa));
-                }),
-              ),
-            ],
+          const DividerWithText(
+            text: 'Befehle',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Befehl hinzufügen',
+              onPressed: () => setState(() {
+                final defaultGa = widget.program.commands.isNotEmpty
+                    ? widget.program.commands.last.groupAddress
+                    : '';
+                widget.program.commands.add(TimeCommand(groupAddress: defaultGa));
+              }),
+            ),
           ),
           const SizedBox(height: 8),
           if (widget.program.commands.isEmpty)

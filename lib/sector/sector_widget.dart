@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:configurator/facade_orientation_dialog.dart';
 import 'package:configurator/globals.dart';
+import 'package:configurator/divider_with_text.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;

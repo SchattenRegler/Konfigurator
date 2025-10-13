@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 
+import 'divider_with_text.dart';
 import 'globals.dart';
+import 'timezones.dart';
 
 class GeneralPage extends StatelessWidget {
   const GeneralPage({
@@ -12,6 +15,8 @@ class GeneralPage extends StatelessWidget {
     required this.onPickLocation,
     required this.azElOption,
     required this.onAzElOptionChanged,
+    required this.azElTimezoneController,
+    required this.onAzElTimezoneChanged,
     required this.connectionType,
     required this.onConnectionTypeChanged,
     required this.individualAddressController,
@@ -30,6 +35,8 @@ class GeneralPage extends StatelessWidget {
   final VoidCallback onPickLocation;
   final String azElOption;
   final ValueChanged<String> onAzElOptionChanged;
+  final TextEditingController azElTimezoneController;
+  final ValueChanged<String> onAzElTimezoneChanged;
   final String connectionType;
   final ValueChanged<String> onConnectionTypeChanged;
   final TextEditingController individualAddressController;
@@ -76,14 +83,13 @@ class GeneralPage extends StatelessWidget {
                           initialValue: version,
                           enabled: false,
                         ),
-                        const SizedBox(height: 24),
+                        const DividerWithText(text: 'Standort'),
                         _LocationSection(
                           latController: latController,
                           lngController: lngController,
                           onPickLocation: onPickLocation,
                         ),
-                        const SizedBox(height: 24),
-                        const Text('Azimut/Elevation'),
+                        const DividerWithText(text: 'Azimut / Elevation'),
                         DropdownButtonFormField<String>(
                           value: azElOption,
                           items: const [
@@ -113,6 +119,54 @@ class GeneralPage extends StatelessWidget {
                               labelText: 'Gruppenadresse Zeit',
                             ),
                             onSaved: (v) => timeAddress = v ?? '',
+                          ),
+                          const SizedBox(height: 8),
+                          TypeAheadFormField<String>(
+                            textFieldConfiguration: TextFieldConfiguration(
+                              controller: azElTimezoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Zeitzone',
+                              ),
+                            ),
+                            suggestionsCallback: (pattern) {
+                              final lowerPattern = pattern.toLowerCase();
+                              if (lowerPattern.isEmpty) {
+                                return kIanaTimeZones.take(20);
+                              }
+                              return kIanaTimeZones
+                                  .where(
+                                    (zone) => zone
+                                        .toLowerCase()
+                                        .contains(lowerPattern),
+                                  )
+                                  .take(20);
+                            },
+                            itemBuilder: (context, suggestion) => ListTile(
+                              title: Text(suggestion),
+                            ),
+                            noItemsFoundBuilder: (context) => const SizedBox(
+                              height: 48,
+                              child: Center(
+                                child: Text('Keine Zeitzone gefunden'),
+                              ),
+                            ),
+                            onSuggestionSelected: (suggestion) {
+                              azElTimezoneController.text = suggestion;
+                              onAzElTimezoneChanged(suggestion);
+                            },
+                            validator: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (!kIanaTimeZones.contains(trimmed)) {
+                                return 'Bitte eine gültige Zeitzone auswählen';
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (kIanaTimeZones.contains(trimmed)) {
+                                onAzElTimezoneChanged(trimmed);
+                              }
+                            },
                           ),
                         ],
                         if (azElOption == 'BusAzEl') ...[
@@ -175,8 +229,6 @@ class _LocationSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Standort'),
-        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -256,6 +308,7 @@ class _KnxConnectionSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const DividerWithText(text: 'Verbindung'),
         DropdownButtonFormField<String>(
           value: connectionType,
           decoration: const InputDecoration(labelText: 'Verbindungstyp'),
@@ -309,6 +362,10 @@ class _KnxConnectionSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (requiresGateway) ...[
+          const DividerWithText(
+            text: 'Gateway',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           TextFormField(
             controller: gatewayIpController,
             decoration: const InputDecoration(
@@ -390,6 +447,10 @@ class _KnxConnectionSection extends StatelessWidget {
             const SizedBox(height: 16),
         ],
         if (isRouting) ...[
+          const DividerWithText(
+            text: 'Routing',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           TextFormField(
             controller: multicastGroupController,
             decoration: const InputDecoration(

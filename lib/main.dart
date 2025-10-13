@@ -10,8 +10,10 @@ import 'package:universal_html/html.dart' as html;
 import 'package:universal_html/js_util.dart' as js_util;
 import 'sector.dart';
 import 'globals.dart';
+import 'timezones.dart';
 import 'location_dialog.dart';
 import 'general.dart';
+import 'divider_with_text.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
@@ -209,6 +211,13 @@ class _ConfigScreenState extends State<ConfigScreen> {
       timeAddress = root.getElement('TimeAddress')?.innerText ?? '';
       azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
       elevationAddress = root.getElement('ElevationAddress')?.innerText ?? '';
+      final timezoneValue = root.getElement('AzElTimezone')?.innerText;
+      if (timezoneValue != null && kIanaTimeZones.contains(timezoneValue)) {
+        azElTimezone = timezoneValue;
+      } else {
+        azElTimezone = 'Europe/Zurich';
+      }
+      _azElTimezoneController.text = azElTimezone;
       final connectionTypeRaw =
           root.getElement('KnxConnectionType')?.innerText;
       final connectionTypeStr = connectionTypeRaw?.trim();
@@ -518,6 +527,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
   // Standort (Lat/Lng)
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lngController = TextEditingController();
+  final TextEditingController _azElTimezoneController = TextEditingController();
   final TextEditingController _knxIndividualAddressController =
       TextEditingController();
   final TextEditingController _knxGatewayIpController = TextEditingController();
@@ -542,6 +552,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void initState() {
     super.initState();
+    _azElTimezoneController.text = azElTimezone;
     _knxIndividualAddressController.text = knxIndividualAddress;
     _knxGatewayIpController.text = knxGatewayIp;
     _knxGatewayPortController.text = knxGatewayPort;
@@ -595,6 +606,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         builder.element('TimeAddress', nest: timeAddress);
         builder.element('AzimuthAddress', nest: azimuthAddress);
         builder.element('ElevationAddress', nest: elevationAddress);
+        builder.element('AzElTimezone', nest: azElTimezone);
         builder.element('KnxConnectionType', nest: knxConnectionType);
         builder.element('KnxIndividualAddress', nest: knxIndividualAddress);
         builder.element('KnxGatewayIp', nest: knxGatewayIp);
@@ -1521,7 +1533,23 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                     onPickLocation: _pickLocation,
                                     azElOption: azElOption,
                                     onAzElOptionChanged: (value) =>
-                                        setState(() => azElOption = value),
+                                        setState(() {
+                                          azElOption = value;
+                                          if (value == 'BusAzEl' &&
+                                              !kIanaTimeZones
+                                                  .contains(azElTimezone)) {
+                                            azElTimezone = 'Europe/Zurich';
+                                          }
+                                          _azElTimezoneController.text =
+                                              azElTimezone;
+                                        }),
+                                    azElTimezoneController:
+                                        _azElTimezoneController,
+                                    onAzElTimezoneChanged: (value) =>
+                                        setState(() {
+                                          azElTimezone = value;
+                                          _azElTimezoneController.text = value;
+                                        }),
                                     connectionType: knxConnectionType,
                                     onConnectionTypeChanged: (value) =>
                                         setState(() {
@@ -1566,24 +1594,18 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          'Sektoren',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                    const DividerWithText(
+                                      text: 'Sektoren',
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: IconButton(
+                                        icon: const Icon(Icons.add),
+                                        onPressed: () => setState(
+                                          () => sectors.add(Sector()),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.add),
-                                          onPressed: () => setState(
-                                            () => sectors.add(Sector()),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                     for (int i = 0; i < sectors.length; i++)
                                       SectorWidget(
@@ -1626,8 +1648,20 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     lngController: _lngController,
                     onPickLocation: _pickLocation,
                     azElOption: azElOption,
-                    onAzElOptionChanged:
-                        (value) => setState(() => azElOption = value),
+                    onAzElOptionChanged: (value) => setState(() {
+                      azElOption = value;
+                      if (value == 'BusAzEl' &&
+                          !kIanaTimeZones.contains(azElTimezone)) {
+                        azElTimezone = 'Europe/Zurich';
+                      }
+                      _azElTimezoneController.text = azElTimezone;
+                    }),
+                    azElTimezoneController: _azElTimezoneController,
+                    onAzElTimezoneChanged: (value) =>
+                        setState(() {
+                          azElTimezone = value;
+                          _azElTimezoneController.text = value;
+                        }),
                     connectionType: knxConnectionType,
                     onConnectionTypeChanged: (value) => setState(() {
                       knxConnectionType = value;

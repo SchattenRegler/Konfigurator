@@ -7,6 +7,10 @@ extension _SettingsTab on _SectorWidgetState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const DividerWithText(
+            text: 'Allgemein',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           // GUID (readonly)
           TextFormField(
             initialValue: sector.guid,
@@ -29,6 +33,10 @@ extension _SettingsTab on _SectorWidgetState {
           ),
           const SizedBox(height: 16),
           // Fassadenausrichtung
+          const DividerWithText(
+            text: 'Fassade',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           Row(
             children: [
               Expanded(
@@ -97,7 +105,10 @@ extension _SettingsTab on _SectorWidgetState {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const DividerWithText(
+            text: 'Sensoren',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           SwitchListTile.adaptive(
             title: const Text('Helligkeit verwenden'),
             value: sector.useBrightness,
@@ -119,7 +130,11 @@ extension _SettingsTab on _SectorWidgetState {
           ),
 
           //Helligkeit
-          if (sector.useBrightness) const SizedBox(height: 16),
+          if (sector.useBrightness)
+            const DividerWithText(
+              text: 'Helligkeit',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
           if (sector.useBrightness)
             TextFormField(
               initialValue: sector.brightnessAddress,
@@ -259,7 +274,11 @@ extension _SettingsTab on _SectorWidgetState {
             ),
 
           //Globalstrahlung
-          if (sector.useIrradiance) const SizedBox(height: 16),
+          if (sector.useIrradiance)
+            const DividerWithText(
+              text: 'Globalstrahlung',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
           if (sector.useIrradiance)
             TextFormField(
               initialValue: sector.irradianceAddress,
@@ -398,7 +417,10 @@ extension _SettingsTab on _SectorWidgetState {
               },
             ),
           if (sector.useBrightness && sector.useIrradiance)
-            const SizedBox(height: 16),
+            const DividerWithText(
+              text: 'Verknüpfung',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
           if (sector.useBrightness && sector.useIrradiance)
             DropdownButtonFormField(
               value: sector.brightnessIrradianceLink,
@@ -416,7 +438,10 @@ extension _SettingsTab on _SectorWidgetState {
                 });
               },
             ),
-            const SizedBox(height: 16),
+            const DividerWithText(
+              text: 'Übdersteuerung',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
             TextFormField(
               initialValue: sector.onAutoAddress,
               decoration: InputDecoration(
@@ -517,7 +542,10 @@ extension _SettingsTab on _SectorWidgetState {
               },
             ),
 
-          const SizedBox(height: 16),
+          const DividerWithText(
+            text: 'Automatik',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           SwitchListTile.adaptive(
             title: const Text('Lamellennachführung'),
             value: sector.louvreTracking,
@@ -533,7 +561,10 @@ extension _SettingsTab on _SectorWidgetState {
             }),
           ),
           if (sector.useBrightness && sector.louvreTracking)
-            const SizedBox(height: 16),
+            const DividerWithText(
+              text: 'Lamellensteuerung',
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
           if (sector.useBrightness && sector.louvreTracking)
             TextFormField(
               initialValue: sector.louvreAngleAddress,
@@ -567,7 +598,10 @@ extension _SettingsTab on _SectorWidgetState {
                 });
               },
             ),
-          const SizedBox(height: 16),
+          const DividerWithText(
+            text: 'Sonnenstand',
+            padding: EdgeInsets.symmetric(vertical: 16),
+          ),
           TextFormField(
             initialValue: sector.sunBoolAddress,
             decoration: InputDecoration(
@@ -600,7 +634,7 @@ extension _SettingsTab on _SectorWidgetState {
               });
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           // Remove button (match time program delete style)
           Align(
             alignment: Alignment.centerRight,
