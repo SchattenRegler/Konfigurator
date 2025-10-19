@@ -11,6 +11,7 @@ String version = '0.8.0';
 // Azimuth/Elevation settings
 String azElOption = 'Internet';
 String timeAddress = '';
+String dateAddress = '';
 String azimuthAddress = '';
 String elevationAddress = '';
 String azElTimezone = 'Europe/Zurich';

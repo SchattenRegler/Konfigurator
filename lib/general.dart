@@ -115,10 +115,25 @@ class GeneralPage extends StatelessWidget {
                         if (azElOption == 'BusTime') ...[
                           const SizedBox(height: 8),
                           TextFormField(
+                            initialValue: timeAddress,
                             decoration: const InputDecoration(
                               labelText: 'Gruppenadresse Zeit',
                             ),
-                            onSaved: (v) => timeAddress = v ?? '',
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            validator: _validateGroupAddress,
+                            onSaved: (v) => timeAddress = (v ?? '').trim(),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            initialValue: dateAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Gruppenadresse Datum',
+                            ),
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            validator: _validateGroupAddress,
+                            onSaved: (v) => dateAddress = (v ?? '').trim(),
                           ),
                           const SizedBox(height: 8),
                           TypeAheadFormField<String>(
@@ -175,6 +190,9 @@ class GeneralPage extends StatelessWidget {
                             decoration: const InputDecoration(
                               labelText: 'Gruppenadresse Azimut',
                             ),
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            validator: _validateGroupAddress,
                             onSaved: (v) => azimuthAddress = v ?? '',
                           ),
                           const SizedBox(height: 8),
@@ -182,6 +200,9 @@ class GeneralPage extends StatelessWidget {
                             decoration: const InputDecoration(
                               labelText: 'Gruppenadresse Elevation',
                             ),
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            validator: _validateGroupAddress,
                             onSaved: (v) => elevationAddress = v ?? '',
                           ),
                         ],
@@ -498,6 +519,31 @@ class _KnxConnectionSection extends StatelessWidget {
       ],
     );
   }
+}
+
+String? _validateGroupAddress(String? value) {
+  final trimmed = value?.trim() ?? '';
+  if (trimmed.isEmpty) {
+    return 'Bitte dreistufige Gruppenadresse eingeben';
+  }
+  final parts = trimmed.split('/');
+  final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+  final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+  final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+  if (parts.length != 3 ||
+      a == null ||
+      a < 0 ||
+      a > 31 ||
+      b == null ||
+      b < 0 ||
+      b > 7 ||
+      c == null ||
+      c < 0 ||
+      c > 255 ||
+      (a == 0 && b == 0 && c == 0)) {
+    return 'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+  }
+  return null;
 }
 
 bool _isValidIndividualAddress(String value) {

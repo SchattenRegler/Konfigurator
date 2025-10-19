@@ -209,6 +209,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
       _lngController.text = root.getElement('Longitude')?.innerText ?? '';
       azElOption = root.getElement('AzElOption')?.innerText ?? 'Internet';
       timeAddress = root.getElement('TimeAddress')?.innerText ?? '';
+      dateAddress = root.getElement('DateAddress')?.innerText ?? '';
       azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
       elevationAddress = root.getElement('ElevationAddress')?.innerText ?? '';
       final timezoneValue = root.getElement('AzElTimezone')?.innerText;
@@ -604,6 +605,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         builder.element('Longitude', nest: _lngController.text);
         builder.element('AzElOption', nest: azElOption);
         builder.element('TimeAddress', nest: timeAddress);
+        builder.element('DateAddress', nest: dateAddress);
         builder.element('AzimuthAddress', nest: azimuthAddress);
         builder.element('ElevationAddress', nest: elevationAddress);
         builder.element('AzElTimezone', nest: azElTimezone);

@@ -481,7 +481,7 @@ extension _SettingsTab on _SectorWidgetState {
                 labelText: 'Verhalten bei logischer 1',
               ),
               items: const [
-                DropdownMenuItem(value: 'Ein', child: Text('Ein')),
+                DropdownMenuItem(value: 'On', child: Text('Ein')),
                 DropdownMenuItem(value: 'Auto', child: Text('Auto')),
               ],
               onChanged: (value) {
@@ -531,7 +531,7 @@ extension _SettingsTab on _SectorWidgetState {
                 labelText: 'Verhalten bei logischer 1',
               ),
               items: const [
-                DropdownMenuItem(value: 'Aus', child: Text('Aus')),
+                DropdownMenuItem(value: 'Off', child: Text('Aus')),
                 DropdownMenuItem(value: 'Auto', child: Text('Auto')),
               ],
               onChanged: (value) {
