@@ -428,8 +428,8 @@ extension _SettingsTab on _SectorWidgetState {
                 labelText: 'Verknüpfung Helligkeit und Globalstrahlung',
               ),
               items: const [
-                DropdownMenuItem(value: 'Und', child: Text('Und')),
-                DropdownMenuItem(value: 'Oder', child: Text('Oder')),
+                DropdownMenuItem(value: 'And', child: Text('Und')),
+                DropdownMenuItem(value: 'Or', child: Text('Oder')),
               ],
               onChanged: (v) {
                 if (v == null) return;
@@ -560,12 +560,45 @@ extension _SettingsTab on _SectorWidgetState {
               sector.horizonLimit = v;
             }),
           ),
-          if (sector.useBrightness && sector.louvreTracking)
             const DividerWithText(
-              text: 'Lamellensteuerung',
+              text: 'Ausgänge',
               padding: EdgeInsets.symmetric(vertical: 16),
             ),
-          if (sector.useBrightness && sector.louvreTracking)
+            TextFormField(
+              initialValue: sector.heightAddress,
+              decoration: InputDecoration(
+                labelText: 'Gruppenadresse Höhe',
+                errorText: _heightAddressError,
+              ),
+              onChanged: (v) {
+                _mutate(() {
+                  sector.heightAddress = v;
+                  final parts = v.split('/');
+                  final a = int.tryParse(parts.isNotEmpty ? parts[0] : '');
+                  final b = int.tryParse(parts.length > 1 ? parts[1] : '');
+                  final c = int.tryParse(parts.length > 2 ? parts[2] : '');
+                  if (parts.length != 3 ||
+                      a == null ||
+                      a < 0 ||
+                      a > 31 ||
+                      b == null ||
+                      b < 0 ||
+                      b > 7 ||
+                      c == null ||
+                      c < 0 ||
+                      c > 255 ||
+                      (a == 0 && b == 0 && c == 0)) {
+                    _heightAddressError =
+                        'Ungültiges Format, bitte dreistufige Gruppenadresse eingeben';
+                  } else {
+                    _heightAddressError = null;
+                  }
+                });
+              },
+            ),
+            if (sector.louvreTracking) 
+            const SizedBox(height: 16),
+            if (sector.louvreTracking) 
             TextFormField(
               initialValue: sector.louvreAngleAddress,
               decoration: InputDecoration(
@@ -598,10 +631,7 @@ extension _SettingsTab on _SectorWidgetState {
                 });
               },
             ),
-          const DividerWithText(
-            text: 'Sonnenstand',
-            padding: EdgeInsets.symmetric(vertical: 16),
-          ),
+          const SizedBox(height: 16),
           TextFormField(
             initialValue: sector.sunBoolAddress,
             decoration: InputDecoration(

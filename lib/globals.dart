@@ -14,6 +14,8 @@ String timeAddress = '';
 String dateAddress = '';
 String azimuthAddress = '';
 String elevationAddress = '';
+String azimuthDPT = '5.003';
+String elevationDPT = '5.003';
 String azElTimezone = 'Europe/Zurich';
 
 // KNX connection
@@ -72,6 +74,7 @@ class Sector {
   double louvreMinimumChange;
   double louvreBuffer;
   String brightnessAddress;
+  String heightAddress;
   String louvreAngleAddress;
   String sunBoolAddress;
   bool useBrightness;
@@ -112,10 +115,11 @@ class Sector {
     this.louvreMinimumChange = 20,
     this.louvreBuffer = 5,
     this.brightnessAddress = '',
+    this.heightAddress = '',
     this.louvreAngleAddress = '',
     this.sunBoolAddress = '',
     this.irradianceAddress = '',
-    this.brightnessIrradianceLink = 'Und',
+    this.brightnessIrradianceLink = 'And',
     this.onAutoAddress = '',
     this.onAutoBehavior = 'Auto',
     this.offAutoAddress = '',

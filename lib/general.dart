@@ -17,6 +17,8 @@ class GeneralPage extends StatelessWidget {
     required this.onAzElOptionChanged,
     required this.azElTimezoneController,
     required this.onAzElTimezoneChanged,
+    required this.onAzimuthDPTChanged,
+    required this.onElevationDPTChanged,
     required this.connectionType,
     required this.onConnectionTypeChanged,
     required this.individualAddressController,
@@ -37,6 +39,8 @@ class GeneralPage extends StatelessWidget {
   final ValueChanged<String> onAzElOptionChanged;
   final TextEditingController azElTimezoneController;
   final ValueChanged<String> onAzElTimezoneChanged;
+  final ValueChanged<String> onAzimuthDPTChanged;
+  final ValueChanged<String> onElevationDPTChanged;
   final String connectionType;
   final ValueChanged<String> onConnectionTypeChanged;
   final TextEditingController individualAddressController;
@@ -103,7 +107,9 @@ class GeneralPage extends StatelessWidget {
                             ),
                             DropdownMenuItem(
                               value: 'BusAzEl',
-                              child: Text('Azimut / Elevation vom Bus beziehen'),
+                              child: Text(
+                                'Azimut / Elevation vom Bus beziehen',
+                              ),
                             ),
                           ],
                           onChanged: (v) {
@@ -150,15 +156,14 @@ class GeneralPage extends StatelessWidget {
                               }
                               return kIanaTimeZones
                                   .where(
-                                    (zone) => zone
-                                        .toLowerCase()
-                                        .contains(lowerPattern),
+                                    (zone) => zone.toLowerCase().contains(
+                                      lowerPattern,
+                                    ),
                                   )
                                   .take(20);
                             },
-                            itemBuilder: (context, suggestion) => ListTile(
-                              title: Text(suggestion),
-                            ),
+                            itemBuilder: (context, suggestion) =>
+                                ListTile(title: Text(suggestion)),
                             noItemsFoundBuilder: (context) => const SizedBox(
                               height: 48,
                               child: Center(
@@ -195,6 +200,36 @@ class GeneralPage extends StatelessWidget {
                             validator: _validateGroupAddress,
                             onSaved: (v) => azimuthAddress = v ?? '',
                           ),
+                          DropdownButtonFormField<String>(
+                            value: azimuthDPT,
+                            decoration: const InputDecoration(
+                              labelText: 'Datenpunkttyp Azimut',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: '5.003',
+                                child: Text('DPT 5.003'),
+                              ),
+                              DropdownMenuItem(
+                                value: '8.011',
+                                child: Text('DPT 8.011'),
+                              ),
+                              DropdownMenuItem(
+                                value: '14.007',
+                                child: Text('DPT 14.007'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                onAzimuthDPTChanged(v);
+                              }
+                            },
+                            onSaved: (v) {
+                              if (v != null) {
+                                azimuthDPT = v;
+                              }
+                            },
+                          ),
                           const SizedBox(height: 8),
                           TextFormField(
                             decoration: const InputDecoration(
@@ -204,6 +239,36 @@ class GeneralPage extends StatelessWidget {
                                 AutovalidateMode.onUserInteraction,
                             validator: _validateGroupAddress,
                             onSaved: (v) => elevationAddress = v ?? '',
+                          ),
+                          DropdownButtonFormField<String>(
+                            value: elevationDPT,
+                            decoration: const InputDecoration(
+                              labelText: 'Datenpunkttyp Elevation',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: '5.003',
+                                child: Text('DPT 5.003'),
+                              ),
+                              DropdownMenuItem(
+                                value: '8.011',
+                                child: Text('DPT 8.011'),
+                              ),
+                              DropdownMenuItem(
+                                value: '14.007',
+                                child: Text('DPT 14.007'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                onElevationDPTChanged(v);
+                              }
+                            },
+                            onSaved: (v) {
+                              if (v != null) {
+                                elevationDPT = v;
+                              }
+                            },
                           ),
                         ],
                       ],
@@ -352,10 +417,9 @@ class _KnxConnectionSection extends StatelessWidget {
               onConnectionTypeChanged(value);
             }
           },
-          onSaved: (value) =>
-              knxConnectionType = value == null || value.isEmpty
-                  ? 'ROUTING'
-                  : value,
+          onSaved: (value) => knxConnectionType = value == null || value.isEmpty
+              ? 'ROUTING'
+              : value,
         ),
         const SizedBox(height: 16),
         TextFormField(
@@ -553,7 +617,12 @@ bool _isValidIndividualAddress(String value) {
   final line = int.tryParse(parts[1]);
   final device = int.tryParse(parts[2]);
   if (area == null || line == null || device == null) return false;
-  return area >= 0 && area <= 15 && line >= 0 && line <= 15 && device >= 0 && device <= 255;
+  return area >= 0 &&
+      area <= 15 &&
+      line >= 0 &&
+      line <= 15 &&
+      device >= 0 &&
+      device <= 255;
 }
 
 bool _isValidIpv4(String value) {
@@ -580,7 +649,6 @@ bool _isValidPort(String value) {
   if (port == null) return false;
   return port >= 1 && port <= 65535;
 }
-
 
 class Ipv4TextInputFormatter extends TextInputFormatter {
   const Ipv4TextInputFormatter();

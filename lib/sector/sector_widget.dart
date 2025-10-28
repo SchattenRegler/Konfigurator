@@ -68,6 +68,7 @@ class _SectorWidgetState extends State<SectorWidget> {
   String? _louvreAngleZeroError;
   String? _louvreAngleHundredError;
   String? _louvreAngleAddressError;
+  String? _heightAddressError;
   String? _louvreMinimumChangeError;
   String? _louvreBufferError;
   String? _sunBoolAddressError;

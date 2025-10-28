@@ -212,6 +212,22 @@ class _ConfigScreenState extends State<ConfigScreen> {
       dateAddress = root.getElement('DateAddress')?.innerText ?? '';
       azimuthAddress = root.getElement('AzimuthAddress')?.innerText ?? '';
       elevationAddress = root.getElement('ElevationAddress')?.innerText ?? '';
+      const validAzElDpts = {'5.003', '8.011', '14.007'};
+      final azimuthDptValue = root.getElement('AzimuthDPT')?.innerText ?? '';
+      final azimuthDptTrimmed = azimuthDptValue.trim();
+      if (validAzElDpts.contains(azimuthDptTrimmed)) {
+        azimuthDPT = azimuthDptTrimmed;
+      } else {
+        azimuthDPT = '5.003';
+      }
+      final elevationDptValue =
+          root.getElement('ElevationDPT')?.innerText ?? '';
+      final elevationDptTrimmed = elevationDptValue.trim();
+      if (validAzElDpts.contains(elevationDptTrimmed)) {
+        elevationDPT = elevationDptTrimmed;
+      } else {
+        elevationDPT = '5.003';
+      }
       final timezoneValue = root.getElement('AzElTimezone')?.innerText;
       if (timezoneValue != null && kIanaTimeZones.contains(timezoneValue)) {
         azElTimezone = timezoneValue;
@@ -219,8 +235,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         azElTimezone = 'Europe/Zurich';
       }
       _azElTimezoneController.text = azElTimezone;
-      final connectionTypeRaw =
-          root.getElement('KnxConnectionType')?.innerText;
+      final connectionTypeRaw = root.getElement('KnxConnectionType')?.innerText;
       final connectionTypeStr = connectionTypeRaw?.trim();
       if (connectionTypeStr != null && connectionTypeStr.isNotEmpty) {
         knxConnectionType = connectionTypeStr;
@@ -231,17 +246,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
           root.getElement('KnxIndividualAddress')?.innerText ?? '';
       knxGatewayIp = root.getElement('KnxGatewayIp')?.innerText ?? '';
       knxGatewayPort = root.getElement('KnxGatewayPort')?.innerText ?? '';
-      knxMulticastGroup =
-          root.getElement('KnxMulticastGroup')?.innerText ?? '';
-      knxMulticastPort =
-          root.getElement('KnxMulticastPort')?.innerText ?? '';
-      final autoReconnectStr =
-          root.getElement('KnxAutoReconnect')?.innerText;
+      knxMulticastGroup = root.getElement('KnxMulticastGroup')?.innerText ?? '';
+      knxMulticastPort = root.getElement('KnxMulticastPort')?.innerText ?? '';
+      final autoReconnectStr = root.getElement('KnxAutoReconnect')?.innerText;
       if (autoReconnectStr != null) {
         knxAutoReconnect = autoReconnectStr.toLowerCase() == 'true';
       }
-      final autoReconnectWaitStr =
-          root.getElement('KnxAutoReconnectWait')?.innerText;
+      final autoReconnectWaitStr = root
+          .getElement('KnxAutoReconnectWait')
+          ?.innerText;
       if (autoReconnectWaitStr != null && autoReconnectWaitStr.isNotEmpty) {
         knxAutoReconnectWait = autoReconnectWaitStr;
       } else if (knxAutoReconnectWait.isEmpty) {
@@ -305,6 +318,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
               5;
           s.brightnessAddress =
               sElem.getElement('BrightnessAddress')?.innerText ?? '';
+          s.heightAddress =
+              sElem.getElement('HeightAddress')?.innerText ?? '';
           s.louvreAngleAddress =
               sElem.getElement('LouvreAngleAddress')?.innerText ?? '';
           final sunBoolAddress = sElem.getElement('SunBoolAddress')?.innerText;
@@ -355,11 +370,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
           if (link != null && link.isNotEmpty) {
             s.brightnessIrradianceLink = link;
           }
-          s.onAutoAddress =
-              sElem.getElement('OnAutoAddress')?.innerText ?? '';
-          final onAutoBehavior = sElem
-              .getElement('OnAutoBehavior')
-              ?.innerText;
+          s.onAutoAddress = sElem.getElement('OnAutoAddress')?.innerText ?? '';
+          final onAutoBehavior = sElem.getElement('OnAutoBehavior')?.innerText;
           if (onAutoBehavior != null && onAutoBehavior.isNotEmpty) {
             if (onAutoBehavior == 'Ein' || onAutoBehavior == 'Auto') {
               s.onAutoBehavior = onAutoBehavior;
@@ -608,6 +620,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
         builder.element('DateAddress', nest: dateAddress);
         builder.element('AzimuthAddress', nest: azimuthAddress);
         builder.element('ElevationAddress', nest: elevationAddress);
+        builder.element('AzimuthDPT', nest: azimuthDPT);
+        builder.element('ElevationDPT', nest: elevationDPT);
         builder.element('AzElTimezone', nest: azElTimezone);
         builder.element('KnxConnectionType', nest: knxConnectionType);
         builder.element('KnxIndividualAddress', nest: knxIndividualAddress);
@@ -615,14 +629,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
         builder.element('KnxGatewayPort', nest: knxGatewayPort);
         builder.element('KnxMulticastGroup', nest: knxMulticastGroup);
         builder.element('KnxMulticastPort', nest: knxMulticastPort);
-        builder.element(
-          'KnxAutoReconnect',
-          nest: knxAutoReconnect.toString(),
-        );
-        builder.element(
-          'KnxAutoReconnectWait',
-          nest: knxAutoReconnectWait,
-        );
+        builder.element('KnxAutoReconnect', nest: knxAutoReconnect.toString());
+        builder.element('KnxAutoReconnectWait', nest: knxAutoReconnectWait);
         builder.element(
           'Sectors',
           nest: () {
@@ -681,6 +689,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     nest: s.brightnessAddress,
                   );
                   builder.element(
+                    'HeightAddress',
+                    nest: s.heightAddress,
+                  );
+                  builder.element(
                     'LouvreAngleAddress',
                     nest: s.louvreAngleAddress,
                   );
@@ -725,22 +737,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     'BrightnessIrradianceLink',
                     nest: s.brightnessIrradianceLink,
                   );
-                  builder.element(
-                    'OnAutoAddress',
-                    nest: s.onAutoAddress,
-                  );
-                  builder.element(
-                    'OnAutoBehavior',
-                    nest: s.onAutoBehavior,
-                  );
-                  builder.element(
-                    'OffAutoAddress',
-                    nest: s.offAutoAddress,
-                  );
-                  builder.element(
-                    'OffAutoBehavior',
-                    nest: s.offAutoBehavior,
-                  );
+                  builder.element('OnAutoAddress', nest: s.onAutoAddress);
+                  builder.element('OnAutoBehavior', nest: s.onAutoBehavior);
+                  builder.element('OffAutoAddress', nest: s.offAutoAddress);
+                  builder.element('OffAutoBehavior', nest: s.offAutoBehavior);
                   builder.element('FacadeAddress', nest: s.facadeAddress);
                   builder.element(
                     'FacadeStart',
@@ -841,9 +841,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
     if (!formState.validate()) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bitte Eingaben prüfen.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Bitte Eingaben prüfen.')));
       }
       return null;
     }
@@ -1528,68 +1528,67 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                 }),
                               )
                             : selectedPage == 'Allgemein'
-                                ? GeneralPage(
-                                    formKey: _formKey,
-                                    latController: _latController,
-                                    lngController: _lngController,
-                                    onPickLocation: _pickLocation,
-                                    azElOption: azElOption,
-                                    onAzElOptionChanged: (value) =>
-                                        setState(() {
-                                          azElOption = value;
-                                          if (value == 'BusAzEl' &&
-                                              !kIanaTimeZones
-                                                  .contains(azElTimezone)) {
-                                            azElTimezone = 'Europe/Zurich';
-                                          }
-                                          _azElTimezoneController.text =
-                                              azElTimezone;
-                                        }),
-                                    azElTimezoneController:
-                                        _azElTimezoneController,
-                                    onAzElTimezoneChanged: (value) =>
-                                        setState(() {
-                                          azElTimezone = value;
-                                          _azElTimezoneController.text = value;
-                                        }),
-                                    connectionType: knxConnectionType,
-                                    onConnectionTypeChanged: (value) =>
-                                        setState(() {
-                                          knxConnectionType = value;
-                                          if (value == 'ROUTING') {
-                                            knxAutoReconnect = false;
-                                          }
-                                        }),
-                                    individualAddressController:
-                                        _knxIndividualAddressController,
-                                    gatewayIpController:
-                                        _knxGatewayIpController,
-                                    gatewayPortController:
-                                        _knxGatewayPortController,
-                                    multicastGroupController:
-                                        _knxMulticastGroupController,
-                                    multicastPortController:
-                                        _knxMulticastPortController,
-                                    autoReconnect: knxAutoReconnect,
-                                    onAutoReconnectChanged: (value) =>
-                                        setState(() {
-                                          knxAutoReconnect = value;
-                                          if (value &&
-                                              _knxAutoReconnectWaitController
-                                                  .text.isEmpty) {
-                                            final fallback =
-                                                knxAutoReconnectWait
-                                                        .isNotEmpty
-                                                    ? knxAutoReconnectWait
-                                                    : '5';
-                                            _knxAutoReconnectWaitController
-                                                .text = fallback;
-                                            knxAutoReconnectWait = fallback;
-                                          }
-                                        }),
-                                    autoReconnectWaitController:
-                                        _knxAutoReconnectWaitController,
-                                  )
+                            ? GeneralPage(
+                                formKey: _formKey,
+                                latController: _latController,
+                                lngController: _lngController,
+                                onPickLocation: _pickLocation,
+                                azElOption: azElOption,
+                                onAzElOptionChanged: (value) => setState(() {
+                                  azElOption = value;
+                                  if (value == 'BusAzEl' &&
+                                      !kIanaTimeZones.contains(azElTimezone)) {
+                                    azElTimezone = 'Europe/Zurich';
+                                  }
+                                  _azElTimezoneController.text = azElTimezone;
+                                }),
+                                azElTimezoneController: _azElTimezoneController,
+                                onAzElTimezoneChanged: (value) => setState(() {
+                                  azElTimezone = value;
+                                  _azElTimezoneController.text = value;
+                                }),
+                                onAzimuthDPTChanged: (value) => setState(() {
+                                  azimuthDPT = value;
+                                }),
+                                onElevationDPTChanged: (value) => setState(() {
+                                  elevationDPT = value;
+                                }),
+                                connectionType: knxConnectionType,
+                                onConnectionTypeChanged: (value) =>
+                                    setState(() {
+                                      knxConnectionType = value;
+                                      if (value == 'ROUTING') {
+                                        knxAutoReconnect = false;
+                                      }
+                                    }),
+                                individualAddressController:
+                                    _knxIndividualAddressController,
+                                gatewayIpController: _knxGatewayIpController,
+                                gatewayPortController:
+                                    _knxGatewayPortController,
+                                multicastGroupController:
+                                    _knxMulticastGroupController,
+                                multicastPortController:
+                                    _knxMulticastPortController,
+                                autoReconnect: knxAutoReconnect,
+                                onAutoReconnectChanged: (value) => setState(() {
+                                  knxAutoReconnect = value;
+                                  if (value &&
+                                      _knxAutoReconnectWaitController
+                                          .text
+                                          .isEmpty) {
+                                    final fallback =
+                                        knxAutoReconnectWait.isNotEmpty
+                                        ? knxAutoReconnectWait
+                                        : '5';
+                                    _knxAutoReconnectWaitController.text =
+                                        fallback;
+                                    knxAutoReconnectWait = fallback;
+                                  }
+                                }),
+                                autoReconnectWaitController:
+                                    _knxAutoReconnectWaitController,
+                              )
                             : selectedPage == 'Sektoren'
                             ? SingleChildScrollView(
                                 padding: const EdgeInsets.all(16),
@@ -1598,7 +1597,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   children: [
                                     const DividerWithText(
                                       text: 'Sektoren',
-                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
                                     ),
                                     Align(
                                       alignment: Alignment.centerRight,
@@ -1659,11 +1660,16 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       _azElTimezoneController.text = azElTimezone;
                     }),
                     azElTimezoneController: _azElTimezoneController,
-                    onAzElTimezoneChanged: (value) =>
-                        setState(() {
-                          azElTimezone = value;
-                          _azElTimezoneController.text = value;
-                        }),
+                    onAzElTimezoneChanged: (value) => setState(() {
+                      azElTimezone = value;
+                      _azElTimezoneController.text = value;
+                    }),
+                    onAzimuthDPTChanged: (value) => setState(() {
+                      azimuthDPT = value;
+                    }),
+                    onElevationDPTChanged: (value) => setState(() {
+                      elevationDPT = value;
+                    }),
                     connectionType: knxConnectionType,
                     onConnectionTypeChanged: (value) => setState(() {
                       knxConnectionType = value;
