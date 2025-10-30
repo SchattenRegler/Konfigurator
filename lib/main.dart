@@ -72,6 +72,55 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Future<void> _openProject() async {
+    if (kIsWeb && js_util.hasProperty(html.window, 'showOpenFilePicker')) {
+      try {
+        final pickerOptions = js_util.jsify({
+          'types': [
+            {
+              'description': 'sunproj Files',
+              'accept': {
+                'text/xml': ['.sunproj'],
+              },
+            },
+          ],
+          'multiple': false,
+        });
+        final handlesResult = await js_util.promiseToFuture(
+          js_util.callMethod(html.window, 'showOpenFilePicker', [
+            pickerOptions,
+          ]),
+        );
+        if (handlesResult is List && handlesResult.isNotEmpty) {
+          final handle = handlesResult.first;
+          final file = await js_util.promiseToFuture(
+            js_util.callMethod(handle, 'getFile', []),
+          );
+          final content = await js_util.promiseToFuture<String>(
+            js_util.callMethod(file, 'text', []),
+          );
+          if (!mounted) return;
+          // Pass handle along so the editor can overwrite the file.
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConfigScreen(
+                initialXmlContent: content,
+                initialWebFileHandle: handle,
+              ),
+            ),
+          );
+          return;
+        }
+        return; // User canceled
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Laden der Datei: $e')),
+        );
+        return;
+      }
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['sunproj'],
@@ -91,6 +140,17 @@ class _MyHomePageState extends State<MyHomePage> {
           if (path == null) throw Exception('Dateipfad fehlt.');
           final file = File(path);
           content = await file.readAsString();
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ConfigScreen(
+                initialXmlContent: content,
+                initialFilePath: path,
+              ),
+            ),
+          );
+          return;
         }
         if (!mounted) return;
         Navigator.push(
@@ -159,9 +219,16 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class ConfigScreen extends StatefulWidget {
-  const ConfigScreen({super.key, this.initialXmlContent});
+  const ConfigScreen({
+    super.key,
+    this.initialXmlContent,
+    this.initialFilePath,
+    this.initialWebFileHandle,
+  });
 
   final String? initialXmlContent;
+  final String? initialFilePath;
+  final Object? initialWebFileHandle;
 
   @override
   State<ConfigScreen> createState() => _ConfigScreenState();
@@ -175,6 +242,8 @@ class SaveAsIntent extends Intent {
   const SaveAsIntent();
 }
 
+enum _UnsavedAction { save, discard, cancel }
+
 class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
   // Remember last save destination
@@ -182,6 +251,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Object? _webFileHandle; // Web File System Access API handle
   // Web: intercept browser Ctrl/⌘+S to prevent the default "Save page" dialog
   StreamSubscription<html.KeyboardEvent>? _keyDownSub;
+  StreamSubscription<html.Event>? _beforeUnloadSub;
+  // Snapshot of last saved XML to detect unsaved changes
+  String? _lastSavedXmlSnapshot;
   // --- XML Parsing ---
   void fromXml(String xmlString) {
     final doc = xml.XmlDocument.parse(xmlString);
@@ -495,35 +567,86 @@ class _ConfigScreenState extends State<ConfigScreen> {
   }
 
   Future<void> _openXml() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['sunproj'],
-      withData: kIsWeb,
-    );
-    if (result != null) {
+    if (!await _maybePromptForUnsavedChanges()) {
+      return;
+    }
+
+    if (kIsWeb && js_util.hasProperty(html.window, 'showOpenFilePicker')) {
       try {
-        String content;
-        if (kIsWeb) {
-          // On web, read from bytes
-          final bytes = result.files.single.bytes;
-          if (bytes == null) {
-            throw Exception('Datei konnte nicht gelesen werden.');
-          }
-          content = String.fromCharCodes(bytes);
-        } else {
-          // On native, read from file path
-          final path = result.files.single.path;
-          if (path == null) throw Exception('Dateipfad fehlt.');
-          final file = File(path);
-          content = await file.readAsString();
+        final pickerOptions = js_util.jsify({
+          'types': [
+            {
+              'description': 'sunproj Files',
+              'accept': {
+                'text/xml': ['.sunproj'],
+              },
+            },
+          ],
+          'multiple': false,
+        });
+        final handlesResult = await js_util.promiseToFuture(
+          js_util.callMethod(html.window, 'showOpenFilePicker', [
+            pickerOptions,
+          ]),
+        );
+        if (handlesResult is List && handlesResult.isNotEmpty) {
+          final handle = handlesResult.first;
+          final file = await js_util.promiseToFuture(
+            js_util.callMethod(handle, 'getFile', []),
+          );
+          final content = await js_util.promiseToFuture<String>(
+            js_util.callMethod(file, 'text', []),
+          );
+          _webFileHandle = handle;
+          _lastXmlPath = null;
+          _loadXmlContent(content);
         }
-        _loadXmlContent(content);
+        return;
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Fehler beim Laden der Datei: $e')),
           );
         }
+        return;
+      }
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['sunproj'],
+      withData: kIsWeb,
+    );
+    if (result == null) {
+      return;
+    }
+
+    try {
+      String content;
+      if (kIsWeb) {
+        // On web, read from bytes
+        final bytes = result.files.single.bytes;
+        if (bytes == null) {
+          throw Exception('Datei konnte nicht gelesen werden.');
+        }
+        content = String.fromCharCodes(bytes);
+        _webFileHandle = null;
+        _lastXmlPath = null;
+      } else {
+        // On native, read from file path
+        final path = result.files.single.path;
+        if (path == null) throw Exception('Dateipfad fehlt.');
+        final file = File(path);
+        content = await file.readAsString();
+        _lastXmlPath = path;
+        _webFileHandle = null;
+      }
+      _loadXmlContent(content);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Laden der Datei: $e')),
+        );
       }
     }
   }
@@ -553,8 +676,15 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final TextEditingController _knxAutoReconnectWaitController =
       TextEditingController();
 
-  void _loadXmlContent(String content, {bool showSuccess = true}) {
+  void _loadXmlContent(
+    String content, {
+    bool showSuccess = true,
+    bool rememberAsSaved = true,
+  }) {
     fromXml(content);
+    if (rememberAsSaved) {
+      _lastSavedXmlSnapshot = toXml();
+    }
     if (mounted && showSuccess) {
       ScaffoldMessenger.of(
         context,
@@ -562,9 +692,93 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
   }
 
+  bool _hasUnsavedChanges() {
+    final savedSnapshot = _lastSavedXmlSnapshot;
+    if (savedSnapshot == null) {
+      return true;
+    }
+    try {
+      final currentSnapshot = toXml();
+      return currentSnapshot != savedSnapshot;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> _maybePromptForUnsavedChanges() async {
+    if (!_hasUnsavedChanges() || !mounted) {
+      return true;
+    }
+    final action = await showDialog<_UnsavedAction>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Änderungen speichern?'),
+        content: const Text(
+          'Es gibt ungespeicherte Änderungen. Möchten Sie sie vor dem Beenden speichern?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_UnsavedAction.cancel),
+            child: const Text('Abbrechen'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_UnsavedAction.discard),
+            child: const Text('Nicht speichern'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_UnsavedAction.save),
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
+
+    switch (action) {
+      case _UnsavedAction.discard:
+        return true;
+      case _UnsavedAction.save:
+        return await _saveXml();
+      case _UnsavedAction.cancel:
+      case null:
+        return false;
+    }
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return false;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.keyS) {
+      return false;
+    }
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final hasPrimaryModifier =
+        pressed.contains(LogicalKeyboardKey.metaLeft) ||
+        pressed.contains(LogicalKeyboardKey.metaRight) ||
+        pressed.contains(LogicalKeyboardKey.controlLeft) ||
+        pressed.contains(LogicalKeyboardKey.controlRight);
+    if (!hasPrimaryModifier) {
+      return false;
+    }
+    final shiftPressed = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+        pressed.contains(LogicalKeyboardKey.shiftRight);
+    if (shiftPressed) {
+      unawaited(_saveAsXml());
+    } else {
+      unawaited(_saveXml());
+    }
+    return true;
+  }
+
+
   @override
   void initState() {
     super.initState();
+    _lastXmlPath = widget.initialFilePath;
+    _webFileHandle = widget.initialWebFileHandle;
     _azElTimezoneController.text = azElTimezone;
     _knxIndividualAddressController.text = knxIndividualAddress;
     _knxGatewayIpController.text = knxGatewayIp;
@@ -587,6 +801,23 @@ class _ConfigScreenState extends State<ConfigScreen> {
           }
         }
       });
+      _beforeUnloadSub = html.window.onBeforeUnload.listen((event) {
+        if (_hasUnsavedChanges()) {
+          event.preventDefault();
+          try {
+            (event as html.BeforeUnloadEvent).returnValue = '';
+          } catch (_) {
+            // Ignore cast issues on older browsers.
+          }
+        }
+      });
+    }
+    if (!kIsWeb) {
+      HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    }
+
+    if (widget.initialXmlContent == null) {
+      _lastSavedXmlSnapshot = toXml();
     }
 
     final initialContent = widget.initialXmlContent;
@@ -602,6 +833,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void dispose() {
     _keyDownSub?.cancel();
+    _beforeUnloadSub?.cancel();
+    if (!kIsWeb) {
+      HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    }
     super.dispose();
   }
 
@@ -851,10 +1086,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
     return toXml();
   }
 
-  Future<void> _saveAsXml({String? xmlString}) async {
+  Future<bool> _saveAsXml({String? xmlString}) async {
     final xml = xmlString ?? _prepareXml();
     if (xml == null) {
-      return;
+      return false;
     }
     if (kIsWeb) {
       // Prefer the File System Access API when available so we can overwrite next time
@@ -892,30 +1127,36 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
           // Remember handle for future quick saves
           _webFileHandle = fileHandle;
+          _lastSavedXmlSnapshot = xml;
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Konfiguration gespeichert.')),
-            );
-          }
-          return;
+          return true;
         } catch (e) {
+          _webFileHandle = null;
           // Fall back to download below
         }
       }
 
       // Fallback: trigger download using AnchorElement (cannot overwrite automatically later)
-      final bytes = utf8.encode(xml);
-      final blob = html.Blob([bytes], 'text/xml');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      //final anchor = html.AnchorElement(href: url)
-      //  ..setAttribute('download', 'konfiguration.sunproj')
-      //  ..click();
-      html.Url.revokeObjectUrl(url);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Projekt gespeichert.')));
+      try {
+        final bytes = utf8.encode(xml);
+        final blob = html.Blob([bytes], 'text/xml');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', 'konfiguration.sunproj')
+          ..style.display = 'none';
+        html.document.body?.append(anchor);
+        anchor.click();
+        anchor.remove();
+        html.Url.revokeObjectUrl(url);
+        _lastSavedXmlSnapshot = xml;
+        return true;
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+          );
+        }
+        return false;
       }
     } else {
       // Native/Desktop: let the user choose a location and remember it
@@ -926,22 +1167,31 @@ class _ConfigScreenState extends State<ConfigScreen> {
         allowedExtensions: ['sunproj'],
       );
       if (result != null) {
-        final file = File(result);
-        await file.writeAsString(xml);
-        _lastXmlPath = result; // remember for quick save
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Konfiguration gespeichert.')),
-          );
+        try {
+          final file = File(result);
+          await file.writeAsString(xml);
+          _lastXmlPath = result; // remember for quick save
+          _lastSavedXmlSnapshot = xml;
+          return true;
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+            );
+          }
+          return false;
         }
+      } else {
+        // User canceled dialog
+        return false;
       }
     }
   }
 
-  Future<void> _saveXml() async {
+  Future<bool> _saveXml() async {
     final xmlString = _prepareXml();
     if (xmlString == null) {
-      return;
+      return false;
     }
 
     if (kIsWeb) {
@@ -961,32 +1211,37 @@ class _ConfigScreenState extends State<ConfigScreen> {
           await js_util.promiseToFuture(
             js_util.callMethod(writable, 'close', []),
           );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Konfiguration gespeichert.')),
-            );
-          }
-          return;
+          _lastSavedXmlSnapshot = xmlString;
+          return true;
         } catch (e) {
           // If writing fails (e.g., permission revoked), forget handle and do Save As
           _webFileHandle = null;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+            );
+          }
         }
       }
-      await _saveAsXml(xmlString: xmlString);
-      return;
+      return await _saveAsXml(xmlString: xmlString);
     } else {
       // Native/Desktop: overwrite the last path if we have one; otherwise Save As
       if (_lastXmlPath != null) {
-        final file = File(_lastXmlPath!);
-        await file.writeAsString(xmlString);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Konfiguration gespeichert.')),
-          );
+        try {
+          final file = File(_lastXmlPath!);
+          await file.writeAsString(xmlString);
+          _lastSavedXmlSnapshot = xmlString;
+          return true;
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+            );
+          }
+          return false;
         }
-      } else {
-        await _saveAsXml(xmlString: xmlString);
       }
+      return await _saveAsXml(xmlString: xmlString);
     }
   }
 
@@ -1012,6 +1267,41 @@ class _ConfigScreenState extends State<ConfigScreen> {
         longitude = picked.longitude;
       });
     }
+  }
+
+  void _removeSectorAt(int index) {
+    if (index < 0 || index >= sectors.length) {
+      return;
+    }
+    setState(() {
+      sectors.removeAt(index);
+      if (_hoveredSectorIndex != null) {
+        if (_hoveredSectorIndex == index) {
+          _hoveredSectorIndex = null;
+        } else if (_hoveredSectorIndex! > index) {
+          _hoveredSectorIndex = _hoveredSectorIndex! - 1;
+        }
+      }
+
+      if (sectors.isEmpty) {
+        editingSectorIndex = null;
+        return;
+      }
+
+      if (editingSectorIndex == null) {
+        return;
+      }
+
+      if (editingSectorIndex == index) {
+        final fallbackIndex = index >= sectors.length ? sectors.length - 1 : index;
+        editingSectorIndex =
+            fallbackIndex >= 0 && fallbackIndex < sectors.length
+                ? fallbackIndex
+                : null;
+      } else if (editingSectorIndex! > index) {
+        editingSectorIndex = editingSectorIndex! - 1;
+      }
+    });
   }
 
   @override
@@ -1071,6 +1361,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           selectedTileColor: Colors.blue.shade100,
                           tileColor: Colors.grey.shade200,
                           onTap: () => setState(() {
+                            selectedPage = 'Sektoren';
                             editingSectorIndex = i;
                             editingTimerIndex = null;
                           }),
@@ -1220,6 +1511,211 @@ class _ConfigScreenState extends State<ConfigScreen> {
       ),
     );
 
+    final generalPage = GeneralPage(
+      formKey: _formKey,
+      latController: _latController,
+      lngController: _lngController,
+      onPickLocation: _pickLocation,
+      azElOption: azElOption,
+      onAzElOptionChanged: (value) => setState(() {
+        azElOption = value;
+        if (value == 'BusAzEl' && !kIanaTimeZones.contains(azElTimezone)) {
+          azElTimezone = 'Europe/Zurich';
+        }
+        _azElTimezoneController.text = azElTimezone;
+      }),
+      azElTimezoneController: _azElTimezoneController,
+      onAzElTimezoneChanged: (value) => setState(() {
+        azElTimezone = value;
+        _azElTimezoneController.text = value;
+      }),
+      onAzimuthDPTChanged: (value) => setState(() {
+        azimuthDPT = value;
+      }),
+      onElevationDPTChanged: (value) => setState(() {
+        elevationDPT = value;
+      }),
+      connectionType: knxConnectionType,
+      onConnectionTypeChanged: (value) => setState(() {
+        knxConnectionType = value;
+        if (value == 'ROUTING') {
+          knxAutoReconnect = false;
+        }
+      }),
+      individualAddressController: _knxIndividualAddressController,
+      gatewayIpController: _knxGatewayIpController,
+      gatewayPortController: _knxGatewayPortController,
+      multicastGroupController: _knxMulticastGroupController,
+      multicastPortController: _knxMulticastPortController,
+      autoReconnect: knxAutoReconnect,
+      onAutoReconnectChanged: (value) => setState(() {
+        knxAutoReconnect = value;
+        if (value && _knxAutoReconnectWaitController.text.isEmpty) {
+          final fallback = knxAutoReconnectWait.isNotEmpty
+              ? knxAutoReconnectWait
+              : '5';
+          _knxAutoReconnectWaitController.text = fallback;
+          knxAutoReconnectWait = fallback;
+        }
+      }),
+      autoReconnectWaitController: _knxAutoReconnectWaitController,
+    );
+
+    Widget buildTimeProgramContent({required bool isDesktopMode}) {
+      if (editingTimerIndex != null) {
+        return TimeProgramWidget(
+          key: ValueKey(
+            isDesktopMode
+                ? 'tp_${editingTimerIndex!}'
+                : 'tp_m_${editingTimerIndex!}',
+          ),
+          program: timePrograms[editingTimerIndex!],
+          onRemove: () => setState(() {
+            timePrograms.removeAt(editingTimerIndex!);
+            editingTimerIndex = null;
+          }),
+        );
+      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Bitte ein Zeitschaltprogramm auswählen'),
+        ),
+      );
+    }
+
+    final Widget bodyContent;
+    if (isDesktop) {
+      final List<Widget> stackChildren = [
+        Positioned.fill(
+          child: Offstage(
+            offstage:
+                editingSectorIndex != null || selectedPage != 'Allgemein',
+            child: generalPage,
+          ),
+        ),
+      ];
+
+      if (selectedPage == 'Sektoren' && editingSectorIndex == null) {
+        stackChildren.add(
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const DividerWithText(
+                    text: 'Sektoren',
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: () => setState(() => sectors.add(Sector())),
+                    ),
+                  ),
+                  for (int i = 0; i < sectors.length; i++)
+                    SectorWidget(
+                      key: ValueKey(i),
+                      sector: sectors[i],
+                      onRemove: () => _removeSectorAt(i),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (editingSectorIndex != null) {
+        stackChildren.add(
+          Positioned.fill(
+            child: SectorWidget(
+              key: ValueKey(editingSectorIndex),
+              sector: sectors[editingSectorIndex!],
+              onRemove: () {
+                final idx = editingSectorIndex;
+                if (idx != null) {
+                  _removeSectorAt(idx);
+                }
+              },
+            ),
+          ),
+        );
+      }
+
+      if (selectedPage == 'Zeitschaltuhren') {
+        stackChildren.add(
+          Positioned.fill(
+            child: buildTimeProgramContent(isDesktopMode: true),
+          ),
+        );
+      }
+
+      bodyContent = Row(
+        children: [
+          navPane,
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: stackChildren,
+            ),
+          ),
+        ],
+      );
+    } else {
+      final List<Widget> stackChildren = [
+        Positioned.fill(
+          child: Offstage(
+            offstage: selectedPage != 'Allgemein',
+            child: generalPage,
+          ),
+        ),
+      ];
+
+      if (selectedPage == 'Sektoren') {
+        final Widget sectorContent = editingSectorIndex != null
+            ? SectorWidget(
+                key: ValueKey(editingSectorIndex),
+                sector: sectors[editingSectorIndex!],
+                onRemove: () {
+                  final idx = editingSectorIndex;
+                  if (idx != null) {
+                    _removeSectorAt(idx);
+                  }
+                },
+              )
+            : Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Bitte einen Sektor auswählen'),
+                ),
+              );
+        stackChildren.add(
+          Positioned.fill(child: sectorContent),
+        );
+      }
+
+      if (selectedPage == 'Zeitschaltuhren') {
+        stackChildren.add(
+          Positioned.fill(
+            child: buildTimeProgramContent(isDesktopMode: false),
+          ),
+        );
+      }
+
+      bodyContent = Stack(
+        fit: StackFit.expand,
+        children: stackChildren,
+      );
+    }
+
+    final currentXmlSnapshot = toXml();
+    final hasUnsavedChangesIndicator =
+        _lastSavedXmlSnapshot == null ||
+        _lastSavedXmlSnapshot != currentXmlSnapshot;
+
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         // Windows/Linux: Ctrl+S / Ctrl+Shift+S
@@ -1250,27 +1746,43 @@ class _ConfigScreenState extends State<ConfigScreen> {
         },
         child: Focus(
           autofocus: true,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Konfiguration'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.folder_open),
-                  tooltip: 'Projekt öffnen',
-                  onPressed: _openXml,
+          child: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, Object? result) async {
+              if (didPop) {
+                return;
+              }
+              final shouldPop = await _maybePromptForUnsavedChanges();
+              if (!context.mounted) {
+                return;
+              }
+              if (shouldPop) {
+                Navigator.of(context).pop(result);
+              }
+            },
+            child: Scaffold(
+              appBar: AppBar(
+                title: Text(
+                  'Konfiguration${hasUnsavedChangesIndicator ? ' *' : ''}',
                 ),
-                IconButton(
-                  icon: const Icon(Icons.save),
-                  tooltip: 'Speichern (Strg/⌘+S)',
-                  onPressed: _saveXml,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.save_as),
-                  tooltip: 'Speichern unter… (Strg/⌘+Umschalt+S)',
-                  onPressed: _saveAsXml,
-                ),
-              ],
-            ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.folder_open),
+                    tooltip: 'Projekt öffnen',
+                    onPressed: () => _openXml(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    tooltip: 'Speichern (Strg/⌘+S)',
+                    onPressed: () => _saveXml(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.save_as),
+                    tooltip: 'Speichern unter… (Strg/⌘+Umschalt+S)',
+                    onPressed: () => _saveAsXml(),
+                  ),
+                ],
+              ),
             drawer: isDesktop
                 ? null
                 : Drawer(
@@ -1513,224 +2025,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                       ],
                     ),
                   ),
-            body: isDesktop
-                ? Row(
-                    children: [
-                      navPane,
-                      Expanded(
-                        child: editingSectorIndex != null
-                            ? SectorWidget(
-                                key: ValueKey(editingSectorIndex),
-                                sector: sectors[editingSectorIndex!],
-                                onRemove: () => setState(() {
-                                  sectors.removeAt(editingSectorIndex!);
-                                  editingSectorIndex = null;
-                                }),
-                              )
-                            : selectedPage == 'Allgemein'
-                            ? GeneralPage(
-                                formKey: _formKey,
-                                latController: _latController,
-                                lngController: _lngController,
-                                onPickLocation: _pickLocation,
-                                azElOption: azElOption,
-                                onAzElOptionChanged: (value) => setState(() {
-                                  azElOption = value;
-                                  if (value == 'BusAzEl' &&
-                                      !kIanaTimeZones.contains(azElTimezone)) {
-                                    azElTimezone = 'Europe/Zurich';
-                                  }
-                                  _azElTimezoneController.text = azElTimezone;
-                                }),
-                                azElTimezoneController: _azElTimezoneController,
-                                onAzElTimezoneChanged: (value) => setState(() {
-                                  azElTimezone = value;
-                                  _azElTimezoneController.text = value;
-                                }),
-                                onAzimuthDPTChanged: (value) => setState(() {
-                                  azimuthDPT = value;
-                                }),
-                                onElevationDPTChanged: (value) => setState(() {
-                                  elevationDPT = value;
-                                }),
-                                connectionType: knxConnectionType,
-                                onConnectionTypeChanged: (value) =>
-                                    setState(() {
-                                      knxConnectionType = value;
-                                      if (value == 'ROUTING') {
-                                        knxAutoReconnect = false;
-                                      }
-                                    }),
-                                individualAddressController:
-                                    _knxIndividualAddressController,
-                                gatewayIpController: _knxGatewayIpController,
-                                gatewayPortController:
-                                    _knxGatewayPortController,
-                                multicastGroupController:
-                                    _knxMulticastGroupController,
-                                multicastPortController:
-                                    _knxMulticastPortController,
-                                autoReconnect: knxAutoReconnect,
-                                onAutoReconnectChanged: (value) => setState(() {
-                                  knxAutoReconnect = value;
-                                  if (value &&
-                                      _knxAutoReconnectWaitController
-                                          .text
-                                          .isEmpty) {
-                                    final fallback =
-                                        knxAutoReconnectWait.isNotEmpty
-                                        ? knxAutoReconnectWait
-                                        : '5';
-                                    _knxAutoReconnectWaitController.text =
-                                        fallback;
-                                    knxAutoReconnectWait = fallback;
-                                  }
-                                }),
-                                autoReconnectWaitController:
-                                    _knxAutoReconnectWaitController,
-                              )
-                            : selectedPage == 'Sektoren'
-                            ? SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const DividerWithText(
-                                      text: 'Sektoren',
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                    ),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.add),
-                                        onPressed: () => setState(
-                                          () => sectors.add(Sector()),
-                                        ),
-                                      ),
-                                    ),
-                                    for (int i = 0; i < sectors.length; i++)
-                                      SectorWidget(
-                                        key: ValueKey(i),
-                                        sector: sectors[i],
-                                        onRemove: () =>
-                                            setState(() => sectors.removeAt(i)),
-                                      ),
-                                  ],
-                                ),
-                              )
-                            : selectedPage == 'Zeitschaltuhren'
-                            ? (editingTimerIndex != null
-                                  ? TimeProgramWidget(
-                                      key: ValueKey('tp_$editingTimerIndex'),
-                                      program: timePrograms[editingTimerIndex!],
-                                      onRemove: () => setState(() {
-                                        timePrograms.removeAt(
-                                          editingTimerIndex!,
-                                        );
-                                        editingTimerIndex = null;
-                                      }),
-                                    )
-                                  : Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Text(
-                                          'Bitte ein Zeitschaltprogramm auswählen',
-                                        ),
-                                      ),
-                                    ))
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  )
-                : selectedPage == 'Allgemein'
-                ? GeneralPage(
-                    formKey: _formKey,
-                    latController: _latController,
-                    lngController: _lngController,
-                    onPickLocation: _pickLocation,
-                    azElOption: azElOption,
-                    onAzElOptionChanged: (value) => setState(() {
-                      azElOption = value;
-                      if (value == 'BusAzEl' &&
-                          !kIanaTimeZones.contains(azElTimezone)) {
-                        azElTimezone = 'Europe/Zurich';
-                      }
-                      _azElTimezoneController.text = azElTimezone;
-                    }),
-                    azElTimezoneController: _azElTimezoneController,
-                    onAzElTimezoneChanged: (value) => setState(() {
-                      azElTimezone = value;
-                      _azElTimezoneController.text = value;
-                    }),
-                    onAzimuthDPTChanged: (value) => setState(() {
-                      azimuthDPT = value;
-                    }),
-                    onElevationDPTChanged: (value) => setState(() {
-                      elevationDPT = value;
-                    }),
-                    connectionType: knxConnectionType,
-                    onConnectionTypeChanged: (value) => setState(() {
-                      knxConnectionType = value;
-                      if (value == 'ROUTING') {
-                        knxAutoReconnect = false;
-                      }
-                    }),
-                    individualAddressController:
-                        _knxIndividualAddressController,
-                    gatewayIpController: _knxGatewayIpController,
-                    gatewayPortController: _knxGatewayPortController,
-                    multicastGroupController: _knxMulticastGroupController,
-                    multicastPortController: _knxMulticastPortController,
-                    autoReconnect: knxAutoReconnect,
-                    onAutoReconnectChanged: (value) => setState(() {
-                      knxAutoReconnect = value;
-                      if (value &&
-                          _knxAutoReconnectWaitController.text.isEmpty) {
-                        final fallback = knxAutoReconnectWait.isNotEmpty
-                            ? knxAutoReconnectWait
-                            : '5';
-                        _knxAutoReconnectWaitController.text = fallback;
-                        knxAutoReconnectWait = fallback;
-                      }
-                    }),
-                    autoReconnectWaitController:
-                        _knxAutoReconnectWaitController,
-                  )
-                : selectedPage == 'Sektoren'
-                ? (editingSectorIndex != null
-                      ? SectorWidget(
-                          key: ValueKey(editingSectorIndex),
-                          sector: sectors[editingSectorIndex!],
-                          onRemove: () => setState(() {
-                            sectors.removeAt(editingSectorIndex!);
-                            editingSectorIndex = null;
-                          }),
-                        )
-                      : Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text('Bitte einen Sektor auswählen'),
-                          ),
-                        ))
-                : (editingTimerIndex != null
-                      ? TimeProgramWidget(
-                          key: ValueKey('tp_m_$editingTimerIndex'),
-                          program: timePrograms[editingTimerIndex!],
-                          onRemove: () => setState(() {
-                            timePrograms.removeAt(editingTimerIndex!);
-                            editingTimerIndex = null;
-                          }),
-                        )
-                      : Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(
-                              'Bitte ein Zeitschaltprogramm auswählen',
-                            ),
-                          ),
-                        )),
+              body: bodyContent,
+
+            ),
           ),
         ),
       ),
