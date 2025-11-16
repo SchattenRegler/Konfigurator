@@ -141,53 +141,6 @@ class GeneralPage extends StatelessWidget {
                             validator: _validateGroupAddress,
                             onSaved: (v) => dateAddress = (v ?? '').trim(),
                           ),
-                          const SizedBox(height: 8),
-                          TypeAheadFormField<String>(
-                            textFieldConfiguration: TextFieldConfiguration(
-                              controller: azElTimezoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Zeitzone',
-                              ),
-                            ),
-                            suggestionsCallback: (pattern) {
-                              final lowerPattern = pattern.toLowerCase();
-                              if (lowerPattern.isEmpty) {
-                                return kIanaTimeZones.take(20);
-                              }
-                              return kIanaTimeZones
-                                  .where(
-                                    (zone) => zone.toLowerCase().contains(
-                                      lowerPattern,
-                                    ),
-                                  )
-                                  .take(20);
-                            },
-                            itemBuilder: (context, suggestion) =>
-                                ListTile(title: Text(suggestion)),
-                            noItemsFoundBuilder: (context) => const SizedBox(
-                              height: 48,
-                              child: Center(
-                                child: Text('Keine Zeitzone gefunden'),
-                              ),
-                            ),
-                            onSuggestionSelected: (suggestion) {
-                              azElTimezoneController.text = suggestion;
-                              onAzElTimezoneChanged(suggestion);
-                            },
-                            validator: (value) {
-                              final trimmed = value?.trim() ?? '';
-                              if (!kIanaTimeZones.contains(trimmed)) {
-                                return 'Bitte eine gültige Zeitzone auswählen';
-                              }
-                              return null;
-                            },
-                            onSaved: (value) {
-                              final trimmed = value?.trim() ?? '';
-                              if (kIanaTimeZones.contains(trimmed)) {
-                                onAzElTimezoneChanged(trimmed);
-                              }
-                            },
-                          ),
                         ],
                         if (azElOption == 'BusAzEl') ...[
                           const SizedBox(height: 8),
@@ -271,6 +224,53 @@ class GeneralPage extends StatelessWidget {
                             },
                           ),
                         ],
+                        const SizedBox(height: 8),
+                        TypeAheadFormField<String>(
+                            textFieldConfiguration: TextFieldConfiguration(
+                              controller: azElTimezoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Zeitzone',
+                              ),
+                            ),
+                            suggestionsCallback: (pattern) {
+                              final lowerPattern = pattern.toLowerCase();
+                              if (lowerPattern.isEmpty) {
+                                return kIanaTimeZones.take(20);
+                              }
+                              return kIanaTimeZones
+                                  .where(
+                                    (zone) => zone.toLowerCase().contains(
+                                      lowerPattern,
+                                    ),
+                                  )
+                                  .take(20);
+                            },
+                            itemBuilder: (context, suggestion) =>
+                                ListTile(title: Text(suggestion)),
+                            noItemsFoundBuilder: (context) => const SizedBox(
+                              height: 48,
+                              child: Center(
+                                child: Text('Keine Zeitzone gefunden'),
+                              ),
+                            ),
+                            onSuggestionSelected: (suggestion) {
+                              azElTimezoneController.text = suggestion;
+                              onAzElTimezoneChanged(suggestion);
+                            },
+                            validator: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (!kIanaTimeZones.contains(trimmed)) {
+                                return 'Bitte eine gültige Zeitzone auswählen';
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (kIanaTimeZones.contains(trimmed)) {
+                                onAzElTimezoneChanged(trimmed);
+                              }
+                            },
+                          ),
                       ],
                     ),
                   ),
