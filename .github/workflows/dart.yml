@@ -6,7 +6,7 @@ on:
   push:
     branches: ["main"]
     tags:
-      - "v*.*.*"   # <- Tag-Push triggert den Release-Job
+      - "*.*.*"   # <- Tag-Push triggert den Release-Job
   pull_request:
     branches: ["main"]
 
