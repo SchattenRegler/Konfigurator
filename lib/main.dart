@@ -1285,10 +1285,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
       if (sectors.isEmpty) {
         editingSectorIndex = null;
+        selectedPage = 'Allgemein';
         return;
       }
 
       if (editingSectorIndex == null) {
+        selectedPage = 'Allgemein';
         return;
       }
 
@@ -1377,6 +1379,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   onTap: () {
                     setState(() {
                       sectors.add(Sector());
+                      selectedPage = 'Sektoren';
                       editingSectorIndex = sectors.length - 1;
                       editingTimerIndex = null;
                     });
@@ -1718,8 +1721,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
+        // Removed because it is not needed
         // Windows/Linux: Ctrl+S / Ctrl+Shift+S
-        SingleActivator(LogicalKeyboardKey.keyS, control: true):
+        /*SingleActivator(LogicalKeyboardKey.keyS, control: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, control: true, shift: true):
             const SaveAsIntent(),
@@ -1727,7 +1731,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             const SaveIntent(),
         SingleActivator(LogicalKeyboardKey.keyS, meta: true, shift: true):
-            const SaveAsIntent(),
+            const SaveAsIntent(),*/
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
