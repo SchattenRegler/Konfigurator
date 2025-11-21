@@ -1,4 +1,4 @@
-package com.example.configurator
+package com.staerium.configurator
 
 import io.flutter.embedding.android.FlutterActivity
 

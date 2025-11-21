@@ -92,10 +92,10 @@ class _MyHomePageState extends State<MyHomePage> {
         );
         if (handlesResult is List && handlesResult.isNotEmpty) {
           final handle = handlesResult.first;
-          final file = await js_util.promiseToFuture(
+          final file = await js_util.promiseToFuture( 
             js_util.callMethod(handle, 'getFile', []),
           );
-          final content = await js_util.promiseToFuture<String>(
+          final content = await js_util.promiseToFuture<String>( 
             js_util.callMethod(file, 'text', []),
           );
           if (!mounted) return;
@@ -276,7 +276,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
     }
 
     setState(() {
-      version = root.getElement('Version')?.innerText ?? '';
       _latController.text = root.getElement('Latitude')?.innerText ?? '';
       _lngController.text = root.getElement('Longitude')?.innerText ?? '';
       azElOption = root.getElement('AzElOption')?.innerText ?? 'Internet';

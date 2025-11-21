@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_typeahead/flutter_typeahead.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:latlong2/latlong.dart';
+
+import 'config/map_tiles.dart';
+import 'services/nominatim_service.dart';
 
 class LocationPickerDialog extends StatefulWidget {
   final String initialAddress;
@@ -62,20 +63,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                 controller: _addressController,
                 decoration: const InputDecoration(labelText: 'Adresse'),
               ),
-              suggestionsCallback: (pattern) async {
-                final url = Uri.parse(
-                  'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(pattern)}&format=json&addressdetails=1&limit=5',
-                );
-                final response = await http.get(url, headers: {
-                  'User-Agent': 'configurator_app',
-                });
-                if (response.statusCode == 200) {
-                  final List data = json.decode(response.body);
-                  return data.cast<Map<String, dynamic>>();
-                } else {
-                  return <Map<String, dynamic>>[];
-                }
-              },
+              suggestionsCallback: NominatimService.fetchSuggestions,
               itemBuilder: (context, suggestion) => ListTile(
                 title: Text(suggestion['display_name'] as String),
               ),
@@ -107,9 +95,9 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    urlTemplate: MapTilesConfig.arcgisUrlTemplate,
                     subdomains: ['a', 'b', 'c'],
-                    userAgentPackageName: 'com.example.configurator',
+                    userAgentPackageName: 'com.staerium.configurator',
                     tileDimension: 256,
                   ),
                   MarkerLayer(

@@ -19,6 +19,8 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      ARCGIS_API_KEY: ${{ secrets.ARCGIS_API_KEY }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,7 +75,7 @@ jobs:
       # Web nur einmal auf Linux bauen (spart Zeit/Runner-Minuten)
       - name: Build Web (Linux only)
         if: runner.os == 'Linux'
-        run: flutter build web --release --base-href /
+        run: flutter build web --release --base-href / --dart-define=ARCGIS_API_KEY=$ARCGIS_API_KEY
 
       - name: Upload GitHub Pages artifact
         if: runner.os == 'Linux'
@@ -83,16 +85,16 @@ jobs:
 
       - name: Build Linux
         if: runner.os == 'Linux'
-        run: flutter build linux --release
+        run: flutter build linux --release --dart-define=ARCGIS_API_KEY=$ARCGIS_API_KEY
 
       - name: Build macOS
         if: runner.os == 'macOS'
-        run: flutter build macos --release
+        run: flutter build macos --release --dart-define=ARCGIS_API_KEY=$ARCGIS_API_KEY
 
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: bash
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=ARCGIS_API_KEY=$ARCGIS_API_KEY
 
       # --- Packen der Artefakte ---
       - name: Package Linux bundle

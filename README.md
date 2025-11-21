@@ -35,6 +35,23 @@
 	flutter run
 	```
 
+## ArcGIS API Key
+
+The facade and location dialogs use Esri World Imagery tiles that now expect an ArcGIS API key. Provide your key at build/run time via Dart defines; the app reads it through `MapTilesConfig.arcgisApiKey`.
+
+- **Development run:**
+  ```sh
+  flutter run --dart-define=ARCGIS_API_KEY=<YOUR_ARCGIS_API_KEY>
+  ```
+- **Building (example for macOS):**
+  ```sh
+  flutter build macos --dart-define=ARCGIS_API_KEY=<YOUR_ARCGIS_API_KEY>
+  ```
+
+- **GitHub Actions:** Add the key as a repository secret named `ARCGIS_API_KEY` (Settings → Secrets and variables → Actions → New repository secret). The workflow consumes it automatically for every build via `--dart-define`.
+
+If you omit the define the app still loads the public tiles (suitable only for quick testing), so keep the define in your IDE run configurations for compliant production usage.
+
 ## Project Structure
 
 - `lib/main.dart` – App entry point, navigation, and main configuration logic
