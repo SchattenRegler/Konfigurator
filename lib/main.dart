@@ -14,6 +14,7 @@ import 'timezones.dart';
 import 'location_dialog.dart';
 import 'general.dart';
 import 'divider_with_text.dart';
+import 'legal_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/services.dart';
 import 'timeswitch.dart';
@@ -175,6 +176,13 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  void _openLegal() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LegalScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -192,6 +200,13 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.policy),
+            tooltip: 'Rechtliches',
+            onPressed: _openLegal,
+          ),
+        ],
       ),
       body: Center(
         child: Column(
@@ -1305,6 +1320,12 @@ class _ConfigScreenState extends State<ConfigScreen> {
     });
   }
 
+  void _openLegalInformation() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const LegalScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
@@ -1783,6 +1804,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     icon: const Icon(Icons.save_as),
                     tooltip: 'Speichern unter… (Strg/⌘+Umschalt+S)',
                     onPressed: () => _saveAsXml(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.policy),
+                    tooltip: 'Rechtliches',
+                    onPressed: _openLegalInformation,
                   ),
                 ],
               ),

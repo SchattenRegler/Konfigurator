@@ -1735,13 +1735,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.''',
   );
 
-/// flutter 3.38.3
+/// flutter 3.35.7
 const _flutter = Package(
     name: 'flutter',
     description: 'A framework for writing Flutter applications',
     homepage: 'https://flutter.dev',
     authors: [],
-    version: '3.38.3',
+    version: '3.35.7',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: true,
@@ -3357,13 +3357,13 @@ const _material_color_utilities = Package(
    limitations under the License.''',
   );
 
-/// meta 1.17.0
+/// meta 1.16.0
 const _meta = Package(
     name: 'meta',
     description: "Annotations used to express developer intentions that can't otherwise be deduced by statically analyzing source code.",
     repository: 'https://github.com/dart-lang/sdk/tree/main/pkg/meta',
     authors: [],
-    version: '1.17.0',
+    version: '1.16.0',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: false,
@@ -3577,13 +3577,13 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.''',
   );
 
-/// pana 0.22.22
+/// pana 0.22.21
 const _pana = Package(
     name: 'pana',
     description: 'PAckage aNAlyzer - produce a report summarizing the health and quality of a Dart package.',
     repository: 'https://github.com/dart-lang/pana',
     authors: [],
-    version: '0.22.22',
+    version: '0.22.21',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: false,
@@ -5220,13 +5220,13 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.''',
   );
 
-/// test 1.26.3
+/// test 1.26.2
 const _test = Package(
     name: 'test',
     description: 'A full featured library for writing and running Dart tests across platforms.',
     repository: 'https://github.com/dart-lang/test/tree/master/pkgs/test',
     authors: [],
-    version: '1.26.3',
+    version: '1.26.2',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: false,
@@ -5261,13 +5261,13 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.''',
   );
 
-/// test_api 0.7.7
+/// test_api 0.7.6
 const _test_api = Package(
     name: 'test_api',
     description: 'The user facing API for structuring Dart tests and checking expectations.',
     repository: 'https://github.com/dart-lang/test/tree/master/pkgs/test_api',
     authors: [],
-    version: '0.7.7',
+    version: '0.7.6',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: false,
@@ -5302,13 +5302,13 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.''',
   );
 
-/// test_core 0.6.12
+/// test_core 0.6.11
 const _test_core = Package(
     name: 'test_core',
     description: 'A basic library for writing tests and running them on the VM.',
     repository: 'https://github.com/dart-lang/test/tree/master/pkgs/test_core',
     authors: [],
-    version: '0.6.12',
+    version: '0.6.11',
     spdxIdentifiers: ['BSD-3-Clause'],
     isMarkdown: false,
     isSdk: false,
@@ -5425,13 +5425,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.''',
   );
 
-/// universal_html 2.2.4
+/// universal_html 2.3.0
 const _universal_html = Package(
     name: 'universal_html',
     description: "A 'dart:html' that works in all platforms, including Flutter and server-side. Eases cross-platform development and HTML / XML processing.",
     homepage: 'https://github.com/dint-dev/universal_html',
     authors: [],
-    version: '2.2.4',
+    version: '2.3.0',
     spdxIdentifiers: [],
     isMarkdown: false,
     isSdk: false,
@@ -5709,13 +5709,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ----------------------------------------------------------------------------------------------------''',
   );
 
-/// universal_io 2.2.2
+/// universal_io 2.3.1
 const _universal_io = Package(
     name: 'universal_io',
     description: 'Cross-platform \'dart:io\' that adds browser support for HttpClient and some other "dart:io" APIs.',
     homepage: 'https://github.com/dart-io-packages/universal_io',
     authors: [],
-    version: '2.2.2',
+    version: '2.3.1',
     spdxIdentifiers: ['Apache-2.0'],
     isMarkdown: false,
     isSdk: false,
