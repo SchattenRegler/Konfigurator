@@ -105,9 +105,7 @@ jobs:
       - name: Package Linux bundle (x64/arm64)
         if: runner.os == 'Linux'
         run: |
-          ARCH="${{ matrix.linux_arch }}"
-          # bundle-Verzeichnis je Architektur: build/linux/x64/... bzw. build/linux/arm64/...
-          tar -czf "app-linux-${ARCH}.tar.gz" -C "build/linux/${ARCH}/release" bundle
+          tar -czf app-linux.tar.gz -C build/linux/x64/release bundle
 
       - name: Package Web bundle (only x64)
         if: runner.os == 'Linux' && matrix.build_web == true
