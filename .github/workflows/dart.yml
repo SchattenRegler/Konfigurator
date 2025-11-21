@@ -31,21 +31,34 @@ jobs:
             build_web: false
           - os: ubuntu-latest
             os_name: Linux
+            linux_arch: x64
             build_web: true
           - os: macos-latest
             os_name: macOS
+            linux_arch: x64
+            build_web: false
           - os: windows-latest
             os_name: Windows
+            linux_arch: x64
+            build_web: false
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Flutter
+        if: runner.arch != 'ARM64'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
+      - name: Set up Flutter (ARM64)
+        if: runner.arch == 'ARM64'
+        run: |
+          git clone --depth=1 --branch stable https://github.com/flutter/flutter.git "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          flutter --version
 
       # --- Betriebssystemspezifische Dependencies ---
       - name: Install desktop deps (Linux)
@@ -105,7 +118,8 @@ jobs:
       - name: Package Linux bundle (x64/arm64)
         if: runner.os == 'Linux'
         run: |
-          tar -czf app-linux.tar.gz -C build/linux/x64/release bundle
+          ARCH="${{ matrix.linux_arch }}"
+          tar -czf "app-linux-${ARCH}.tar.gz" -C "build/linux/${ARCH}/release" bundle
 
       - name: Package Web bundle (only x64)
         if: runner.os == 'Linux' && matrix.build_web == true
@@ -142,7 +156,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Web artifact
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.build_web == true
         uses: actions/upload-artifact@v4
         with:
           name: web-build
