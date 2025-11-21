@@ -11,8 +11,22 @@ class MapTilesConfig {
   );
 
   /// Returns the ArcGIS imagery template and appends the token if available.
-  static String get arcgisUrlTemplate =>
-      arcgisApiKey.isEmpty ? _arcgisBaseUrl : '$_arcgisBaseUrl?token=$arcgisApiKey';
+  static String get arcgisUrlTemplate => arcgisApiKey.isEmpty
+      ? _arcgisBaseUrl
+      : '$_arcgisBaseUrl?token=$arcgisApiKey';
 
   static bool get hasArcgisApiKey => arcgisApiKey.isNotEmpty;
+
+  /// ArcGIS metadata endpoint used to load dynamic copyright information.
+  static Uri get arcgisMetadataUri {
+    final queryParameters = <String, String>{'f': 'json'};
+    if (hasArcgisApiKey) {
+      queryParameters['token'] = arcgisApiKey;
+    }
+    return Uri.https(
+      'server.arcgisonline.com',
+      '/ArcGIS/rest/services/World_Imagery/MapServer',
+      queryParameters,
+    );
+  }
 }

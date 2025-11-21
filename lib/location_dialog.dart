@@ -5,11 +5,13 @@ import 'package:latlong2/latlong.dart';
 
 import 'config/map_tiles.dart';
 import 'services/nominatim_service.dart';
+import 'widgets/data_attribution.dart';
 
 class LocationPickerDialog extends StatefulWidget {
   final String initialAddress;
   final LatLng? start; // used as initial point if provided
-  final LatLng? end; // ignored in single-point mode, kept for backward compatibility
+  final LatLng?
+  end; // ignored in single-point mode, kept for backward compatibility
 
   const LocationPickerDialog({
     super.key,
@@ -64,9 +66,8 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                 decoration: const InputDecoration(labelText: 'Adresse'),
               ),
               suggestionsCallback: NominatimService.fetchSuggestions,
-              itemBuilder: (context, suggestion) => ListTile(
-                title: Text(suggestion['display_name'] as String),
-              ),
+              itemBuilder: (context, suggestion) =>
+                  ListTile(title: Text(suggestion['display_name'] as String)),
               onSuggestionSelected: (suggestion) {
                 final displayName = suggestion['display_name'] as String;
                 _addressController.text = displayName;
@@ -81,56 +82,62 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                 child: Text('Keine Vorschläge gefunden'),
               ),
             ),
+            const SizedBox(height: 4),
+            PoweredByNominatimNote(
+              textStyle: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+              linkStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
             Expanded(
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: selectedPoint ?? LatLng(0, 0),
-                  initialZoom: selectedPoint != null ? 18.0 : 2.0,
-                  onTap: (tapPos, latlng) {
-                    setState(() {
-                      selectedPoint = LatLng(latlng.latitude, latlng.longitude);
-                    });
-                  },
-                ),
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  TileLayer(
-                    urlTemplate: MapTilesConfig.arcgisUrlTemplate,
-                    subdomains: ['a', 'b', 'c'],
-                    userAgentPackageName: 'com.staerium.configurator',
-                    tileDimension: 256,
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      if (selectedPoint != null)
-                        Marker(
-                          point: selectedPoint!,
-                          width: 16,
-                          height: 16,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.red,
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: selectedPoint ?? LatLng(0, 0),
+                      initialZoom: selectedPoint != null ? 18.0 : 2.0,
+                      onTap: (tapPos, latlng) {
+                        setState(() {
+                          selectedPoint = LatLng(
+                            latlng.latitude,
+                            latlng.longitude,
+                          );
+                        });
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: MapTilesConfig.arcgisUrlTemplate,
+                        subdomains: ['a', 'b', 'c'],
+                        userAgentPackageName: 'com.staerium.configurator',
+                        tileDimension: 256,
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          if (selectedPoint != null)
+                            Marker(
+                              point: selectedPoint!,
+                              width: 16,
+                              height: 16,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.red,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  // Required attributions for Esri World Imagery tiles and Nominatim/OSM search
-                  RichAttributionWidget(
-                    // Display required data source credits
-                    showFlutterMapAttribution: false,
-                    attributions: const [
-                      TextSourceAttribution(
-                        'Imagery: Esri World Imagery — © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-                      ),
-                      TextSourceAttribution(
-                        'Search: Nominatim (OpenStreetMap) — © OpenStreetMap contributors',
+                        ],
                       ),
                     ],
                   ),
+                  const MapDataAttributionOverlay(),
                 ],
               ),
             ),
@@ -149,7 +156,8 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                   child: const Text('Punkt löschen'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                  onPressed: () =>
+                      Navigator.of(context, rootNavigator: true).pop(),
                   child: const Text('Abbrechen'),
                 ),
                 TextButton(
@@ -157,7 +165,10 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                       ? null
                       : () {
                           // The dialog now returns a LatLng directly
-                          Navigator.of(context, rootNavigator: true).pop(selectedPoint);
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).pop(selectedPoint);
                         },
                   child: const Text('Fertig'),
                 ),

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'config/map_tiles.dart';
 import 'services/nominatim_service.dart';
+import 'widgets/data_attribution.dart';
 
 class FacadeOrientationDialog extends StatefulWidget {
   final String initialAddress;
@@ -21,7 +22,8 @@ class FacadeOrientationDialog extends StatefulWidget {
   });
 
   @override
-  State<FacadeOrientationDialog> createState() => _FacadeOrientationDialogState();
+  State<FacadeOrientationDialog> createState() =>
+      _FacadeOrientationDialogState();
 }
 
 class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
@@ -38,8 +40,12 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
     super.initState();
     address = widget.initialAddress;
     _addressController = TextEditingController(text: address);
-    startPoint = widget.start == null ? null : LatLng(widget.start!.latitude, widget.start!.longitude);
-    endPoint = widget.end == null ? null : LatLng(widget.end!.latitude, widget.end!.longitude);
+    startPoint = widget.start == null
+        ? null
+        : LatLng(widget.start!.latitude, widget.start!.longitude);
+    endPoint = widget.end == null
+        ? null
+        : LatLng(widget.end!.latitude, widget.end!.longitude);
 
     if (startPoint != null && endPoint != null) {
       _polylines = [
@@ -58,7 +64,8 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
       final y = sin(dLon) * cos(lat2);
       final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
       var bearing = atan2(y, x) * 180 / pi;
-      bearing = (bearing + 360) % 360 -90; // Adjust to make 0 degrees point north
+      bearing =
+          (bearing + 360) % 360 - 90; // Adjust to make 0 degrees point north
       bearingAngle = bearing;
       // center map
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,9 +95,8 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                 decoration: const InputDecoration(labelText: 'Adresse'),
               ),
               suggestionsCallback: NominatimService.fetchSuggestions,
-              itemBuilder: (context, suggestion) => ListTile(
-                title: Text(suggestion['display_name'] as String),
-              ),
+              itemBuilder: (context, suggestion) =>
+                  ListTile(title: Text(suggestion['display_name'] as String)),
               onSuggestionSelected: (suggestion) {
                 final displayName = suggestion['display_name'] as String;
                 _addressController.text = displayName;
@@ -105,127 +111,153 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                 child: Text('Keine Vorschläge gefunden'),
               ),
             ),
+            const SizedBox(height: 4),
+            PoweredByNominatimNote(
+              textStyle: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+              linkStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
             Expanded(
-              child: FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: startPoint ?? LatLng(0, 0),
-                  initialZoom: startPoint != null ? 18.0 : 2.0,
-                  onTap: (tapPos, latlng) {
-                    setState(() {
-                      if (startPoint == null || (startPoint != null && endPoint != null)) {
-                        startPoint = LatLng(latlng.latitude, latlng.longitude);
-                        endPoint = null;
-                        _polylines.clear();
-                      } else {
-                        endPoint = LatLng(latlng.latitude, latlng.longitude);
-                        _polylines = [
-                          Polyline(
-                            points: [startPoint!, endPoint!],
-                            strokeWidth: 3,
-                            color: Colors.red,
-                          ),
-                        ];
-                        // Calculate geodetic bearing between two coordinates
-                        final lat1 = startPoint!.latitude * pi / 180;
-                        final lat2 = endPoint!.latitude * pi / 180;
-                        final lon1 = startPoint!.longitude * pi / 180;
-                        final lon2 = endPoint!.longitude * pi / 180;
-                        final dLon = lon2 - lon1;
-                        final y = sin(dLon) * cos(lat2);
-                        final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
-                        var bearing = atan2(y, x) * 180 / pi;
-                        bearing = (bearing + 360) % 360 -90; // Adjust to make 0 degrees point north
-                        bearingAngle = bearing;
-                      }
-                    });
-                  },
-                ),
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  TileLayer(
-                    urlTemplate: MapTilesConfig.arcgisUrlTemplate,
-                    subdomains: ['a', 'b', 'c'],
-                    userAgentPackageName: 'com.staerium.configurator',
-                    tileSize: 256.0,
-                  ),
-                  PolylineLayer(polylines: _polylines),
-                  MarkerLayer(
-                    markers: [
-                      if (startPoint != null)
-                        Marker(
-                          point: startPoint!,
-                          width: 16,
-                          height: 16,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.red,
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: startPoint ?? LatLng(0, 0),
+                      initialZoom: startPoint != null ? 18.0 : 2.0,
+                      onTap: (tapPos, latlng) {
+                        setState(() {
+                          if (startPoint == null ||
+                              (startPoint != null && endPoint != null)) {
+                            startPoint = LatLng(
+                              latlng.latitude,
+                              latlng.longitude,
+                            );
+                            endPoint = null;
+                            _polylines.clear();
+                          } else {
+                            endPoint = LatLng(
+                              latlng.latitude,
+                              latlng.longitude,
+                            );
+                            _polylines = [
+                              Polyline(
+                                points: [startPoint!, endPoint!],
+                                strokeWidth: 3,
+                                color: Colors.red,
+                              ),
+                            ];
+                            // Calculate geodetic bearing between two coordinates
+                            final lat1 = startPoint!.latitude * pi / 180;
+                            final lat2 = endPoint!.latitude * pi / 180;
+                            final lon1 = startPoint!.longitude * pi / 180;
+                            final lon2 = endPoint!.longitude * pi / 180;
+                            final dLon = lon2 - lon1;
+                            final y = sin(dLon) * cos(lat2);
+                            final x =
+                                cos(lat1) * sin(lat2) -
+                                sin(lat1) * cos(lat2) * cos(dLon);
+                            var bearing = atan2(y, x) * 180 / pi;
+                            bearing =
+                                (bearing + 360) % 360 -
+                                90; // Adjust to make 0 degrees point north
+                            bearingAngle = bearing;
+                          }
+                        });
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: MapTilesConfig.arcgisUrlTemplate,
+                        subdomains: ['a', 'b', 'c'],
+                        userAgentPackageName: 'com.staerium.configurator',
+                        tileSize: 256.0,
+                      ),
+                      PolylineLayer(polylines: _polylines),
+                      MarkerLayer(
+                        markers: [
+                          if (startPoint != null)
+                            Marker(
+                              point: startPoint!,
+                              width: 16,
+                              height: 16,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.red,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      if (endPoint != null)
-                        Marker(
-                          point: endPoint!,
-                          width: 16,
-                          height: 16,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.red,
+                          if (endPoint != null)
+                            Marker(
+                              point: endPoint!,
+                              width: 16,
+                              height: 16,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.red,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      if (startPoint != null && endPoint != null)
-                        Marker(
-                          // offset arrow marker slightly backward (opposite arrow direction)
-                          point: LatLng(
-                            ((startPoint!.latitude + endPoint!.latitude) / 2)
-                                + 0.0001 * cos(bearingAngle * pi / 180),
-                            ((startPoint!.longitude + endPoint!.longitude) / 2)
-                                + 0.0001 * sin(bearingAngle * pi / 180),
-                          ),
-                          width: 64,
-                          height: 64,
-                          child: Transform.rotate(
-                            angle: bearingAngle * pi / 180,
-                            child: const Icon(Icons.arrow_downward, size: 64, color: Colors.yellow),
-                          ),
-                        ),
-                      if (startPoint != null && endPoint != null)
-                        Marker(
-                          // offset sun marker more backward (opposite arrow direction)
-                          point: LatLng(
-                            ((startPoint!.latitude + endPoint!.latitude) / 2)
-                                + 0.0002 * cos(bearingAngle * pi / 180),
-                            ((startPoint!.longitude + endPoint!.longitude) / 2)
-                                + 0.0002 * sin(bearingAngle * pi / 180),
-                          ),
-                          width: 64,
-                          height: 64,
-                          child: Transform.rotate(
-                            angle: bearingAngle * pi / 180,
-                            child: const Icon(Icons.wb_sunny, size: 64, color: Colors.yellow),
-                          ),
-                        ),
+                          if (startPoint != null && endPoint != null)
+                            Marker(
+                              // offset arrow marker slightly backward (opposite arrow direction)
+                              point: LatLng(
+                                ((startPoint!.latitude + endPoint!.latitude) /
+                                        2) +
+                                    0.0001 * cos(bearingAngle * pi / 180),
+                                ((startPoint!.longitude + endPoint!.longitude) /
+                                        2) +
+                                    0.0001 * sin(bearingAngle * pi / 180),
+                              ),
+                              width: 64,
+                              height: 64,
+                              child: Transform.rotate(
+                                angle: bearingAngle * pi / 180,
+                                child: const Icon(
+                                  Icons.arrow_downward,
+                                  size: 64,
+                                  color: Colors.yellow,
+                                ),
+                              ),
+                            ),
+                          if (startPoint != null && endPoint != null)
+                            Marker(
+                              // offset sun marker more backward (opposite arrow direction)
+                              point: LatLng(
+                                ((startPoint!.latitude + endPoint!.latitude) /
+                                        2) +
+                                    0.0002 * cos(bearingAngle * pi / 180),
+                                ((startPoint!.longitude + endPoint!.longitude) /
+                                        2) +
+                                    0.0002 * sin(bearingAngle * pi / 180),
+                              ),
+                              width: 64,
+                              height: 64,
+                              child: Transform.rotate(
+                                angle: bearingAngle * pi / 180,
+                                child: const Icon(
+                                  Icons.wb_sunny,
+                                  size: 64,
+                                  color: Colors.yellow,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                  // Required attributions for Esri World Imagery tiles and Nominatim/OSM search
-                  RichAttributionWidget(
-                    // Display required data source credits
-                    showFlutterMapAttribution: false,
-                    attributions: const [
-                      TextSourceAttribution(
-                        'Imagery: Esri World Imagery — © Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-                      ),
-                      TextSourceAttribution(
-                        'Search: Nominatim (OpenStreetMap) — © OpenStreetMap contributors',
-                      ),
-                    ],
-                  ),
+                  const MapDataAttributionOverlay(),
                 ],
               ),
             ),
@@ -238,7 +270,10 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
                     'Aktueller Winkel: ${bearingAngle.toStringAsFixed(1)}°',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -264,7 +299,9 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                         final lon2 = endPoint!.longitude * pi / 180;
                         final dLon = lon2 - lon1;
                         final y = sin(dLon) * cos(lat2);
-                        final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
+                        final x =
+                            cos(lat1) * sin(lat2) -
+                            sin(lat1) * cos(lat2) * cos(dLon);
                         var bearing = atan2(y, x) * 180 / pi;
                         bearing = (bearing + 360) % 360 - 90;
                         bearingAngle = bearing;
@@ -297,17 +334,19 @@ class _FacadeOrientationDialogState extends State<FacadeOrientationDialog> {
                       });
                     } else {
                       showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Hinweis'),
-                        content: const Text('Bitte wählen Sie Start- und Endpunkt aus.'),
-                        actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('OK'),
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Hinweis'),
+                          content: const Text(
+                            'Bitte wählen Sie Start- und Endpunkt aus.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
                         ),
-                        ],
-                      ),
                       );
                     }
                   },
