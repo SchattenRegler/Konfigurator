@@ -1805,11 +1805,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
                     tooltip: 'Speichern unter… (Strg/⌘+Umschalt+S)',
                     onPressed: () => _saveAsXml(),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.policy),
-                    tooltip: 'Rechtliches',
-                    onPressed: _openLegalInformation,
-                  ),
                 ],
               ),
             drawer: isDesktop
