@@ -1,0 +1,42 @@
+Datenschutzerklärung Konfigurator (Stand: 22. November 2025)
+
+Verantwortliche Stelle:
+Eric Städler
+Guschstrasse 59
+8610 Uster
+Schweiz
+E-Mail: info@staerium.com
+
+Diese Datenschutzerklärung soll die Informationspflichten nach dem Schweizer Datenschutzgesetz (DSG; revDSG) und – soweit anwendbar – der DSGVO erfüllen. Soweit wir Dienste gegenüber Personen im Europäischen Wirtschaftsraum erbringen, gelten ergänzend die Regelungen der Datenschutz-Grundverordnung (DSGVO).
+
+Zweck & Geltungsbereich – Gilt für die Nutzung der Konfigurator-App auf macOS, Windows, Linux sowie der Web-Version auf GitHub Pages (https://staerium.github.io/Konfigurator/). Die Anwendung dient zur Planung, Visualisierung und Verwaltung von Fassadensektoren und Sonnenlaufdaten. Es bestehen keine Benutzerkonten und wir betreiben keine eigenen Anwendungsserver. Die Web-Version wird als statische Seite über GitHub Pages bereitgestellt.
+
+Verarbeitete Daten – Projektdaten (.sunproj) werden ausschließlich lokal auf dem von Ihnen gewählten Speichermedium verarbeitet und gespeichert. Die App greift nur auf Dateien zu, die Sie aktiv über den systemeigenen Datei-Dialog freigeben. Bei Supportanfragen per E-Mail verarbeiten wir Ihre E-Mail-Adresse, optionalen Namen und den Nachrichteninhalt zur Bearbeitung Ihres Anliegens (Art. 6 Abs. 1 lit. b DSGVO). Im Rahmen von Supportanfragen können Sie uns optional zusätzliche Informationen bereitstellen (z.B. Logdateien, Screenshots, Systeminformationen), die wir ausschliesslich zur Bearbeitung Ihres Anliegens verwenden.
+
+Nutzung der Desktop-Apps – Alle Berechnungen erfolgen offline auf Ihrem Gerät. Es erfolgt keine automatische Übermittlung von Projektdaten an uns. Logdateien werden nur im Fehlerfall lokal erzeugt. Sie können sämtliche lokalen Daten jederzeit löschen, indem Sie die jeweiligen Dateien bzw. Ordner entfernen.
+
+Web-App auf GitHub Pages – Die Web-Version wird über GitHub Inc., 88 Colin P. Kelly Jr. St., San Francisco, CA 94107, USA bereitgestellt. GitHub verarbeitet beim Aufruf technische Verbindungsdaten (insb. IP-Adresse, Browsertyp, Zeitpunkt, Referrer) und speichert diese in Server-Logs (Art. 6 Abs. 1 lit. f DSGVO). Wir setzen in der Web-App keine eigenen Tracking- oder Marketing-Cookies. GitHub Pages als Hosting-Anbieter kann aus technischen und sicherheitsrelevanten Gründen eigene Cookies oder ähnliche Technologien einsetzen. Details hierzu finden Sie in der GitHub-Datenschutzerklärung (https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement). Projektdaten verbleiben im Browser-Speicher und können über die Download-Funktion exportiert werden.
+
+Kartendienste & Geokodierung
+
+Esri World Imagery (ArcGIS Online) – Für die Fassaden- und Standortdialoge laden wir Satellitenkacheln und Metadaten von Esri Inc., 380 New York Street, Redlands, CA 92373, USA. Hierbei übermittelt Ihr Gerät IP-Adresse, Geräte-/Browserinformationen, Anfragezeitpunkt, Kartenkachelebenen und ggf. den verwendeten ArcGIS-API-Key direkt an Esri. Wir erhalten aus dieser Kommunikation keine zusätzlichen personenbezogenen Daten wie IP-Adressen; wir verarbeiten lediglich die von Ihnen in der App eingegebenen Standort- und Projektdaten. Grundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der Bereitstellung hochwertiger Kartendaten). Weitere Infos: https://www.esri.com/en-us/legal/privacy.
+OpenStreetMap & Nominatim – Für Adressvorschläge senden wir Ihre Suchbegriffe direkt an Nominatim (OpenStreetMap Foundation, 132 Maney Hill Road, Sutton Coldfield, B72 1JU, Vereinigtes Königreich). Die Nutzung von Kartendiensten/Adresssuche ist ohne Übermittlung der Suchbegriffe und technischen Verbindungsdaten an die jeweiligen Anbieter nicht möglich. Übermittelt werden Suchtext, IP-Adresse, User-Agent und Zeitpunkt. Die Antworten (Koordinaten, Adressbestandteile) werden ausschließlich in der App angezeigt bzw. in Ihrem Projekt gespeichert. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Durchführung vorvertraglicher Maßnahmen auf Ihre Anfrage). Datenschutzhinweis: https://operations.osmfoundation.org/policies/nominatim/.
+OpenStreetMap-Attribution – Für Copyright-Verweise rufen wir Links zu https://www.openstreetmap.org/copyright sowie https://nominatim.org/ ab. Beim Öffnen dieser Links gelten die Datenschutzbestimmungen der jeweiligen Anbieter.
+Kommunikation mit Drittanbietern – Die App nutzt ausschließlich HTTPS-Verbindungen zu den oben genannten Diensten. Eine darüber hinausgehende Weitergabe oder Zusammenführung von Daten findet nicht statt. Wir betreiben keine Analysedienste, kein Tracking und keine Werbung.
+
+Datenempfänger & Übermittlung in Drittländer – Übermittlungen erfolgen nur, soweit dies zur Nutzung von Esri (USA), GitHub Pages (USA) oder OpenStreetMap (UK/EU) erforderlich ist. Die Anbieter setzen eigene technische und organisatorische Maßnahmen ein und stützen sich bei Datenübermittlungen in Drittländer auf geeignete Garantien (insb. Standardvertragsklauseln). Dabei kann nicht ausgeschlossen werden, dass ausländische Behörden in diese Daten Einsicht nehmen, ohne dass wir oder Sie dies zuverlässig verhindern können. Eine weitergehende Übermittlung durch uns erfolgt nicht.
+
+Speicherdauer – Projektdaten verbleiben solange auf Ihrem Gerät, bis Sie sie löschen. Supportanfragen speichern wir nur solange, wie gesetzliche Aufbewahrungspflichten bestehen oder zur Bearbeitung notwendig ist. Server-Logs der Drittanbieter unterliegen deren eigenen Löschfristen.
+
+Rechtsgrundlagen im Überblick – Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung der App und Support), Art. 6 Abs. 1 lit. f DSGVO (Betrieb, IT-Sicherheit, Bereitstellung von Karten/Hosting), Art. 6 Abs. 1 lit. c DSGVO (gesetzliche Aufbewahrungspflichten). Nach Schweizer Recht (DSG) bearbeiten wir Personendaten, soweit eine Rechtfertigung vorliegt (Art. 31 DSG), insbesondere:
+	•	wenn die Bearbeitung zur Erfüllung eines Vertrages oder zur Durchführung vorvertraglicher Massnahmen erforderlich ist;
+	•	wenn überwiegende berechtigte Interessen unsererseits oder eines Dritten vorliegen;
+	•	oder wenn Sie eingewilligt haben.
+
+Ihre Rechte – Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit sowie Widerspruch gegen Verarbeitungen, die auf Art. 6 Abs. 1 lit. f DSGVO beruhen. Zudem besteht ein Beschwerderecht bei einer Datenschutzaufsichtsbehörde Ihres EU-Mitgliedstaats. Zur Wahrnehmung Ihrer Rechte genügt eine formlose Nachricht an info@staerium.com. In der Schweiz besteht zudem die Möglichkeit, sich an den Eidgenössischen Datenschutz- und Öffentlichkeitsbeauftragten (EDÖB) zu wenden. 
+
+Sicherheit – Wir entwickeln die App nach dem Prinzip der Datensparsamkeit, setzen aktuelle TLS-Verschlüsselung ein und veröffentlichen regelmäßig Updates, die Sicherheitskorrekturen enthalten. Bitte halten Sie Ihre Betriebssystem- und Browser-Version auf dem neuesten Stand und schützen Sie Ihre Geräte vor unbefugtem Zugriff.
+
+Änderungen – Wir passen diese Datenschutzerklärung an, sobald neue Funktionen, Dienstleister oder rechtliche Anforderungen dies notwendig machen. Die jeweils aktuelle Version finden Sie im Repository bzw. innerhalb der App unter „Rechtliches“. 
+
+Bei Fragen wenden Sie sich bitte an info@staerium.com.

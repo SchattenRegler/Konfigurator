@@ -13,6 +13,7 @@ class LegalScreen extends StatefulWidget {
 
 class _LegalScreenState extends State<LegalScreen> {
   late final Future<String> _appLicenseFuture;
+  late final Future<String> _privacyPolicyFuture;
   final List<Package> _packages = List<Package>.from(allDependencies)
     ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
@@ -21,7 +22,7 @@ class _LegalScreenState extends State<LegalScreen> {
     path: 'info@staerium.com',
   );
   static final Uri _esriAttributionUri =
-      Uri.parse('https://www.esri.com/en-us/legal/terms/data-attribution');
+      Uri.parse('https://www.esri.com/en-us/legal/terms/data-attributions');
   static final Uri _esriServicesUri =
       Uri.parse('https://www.esri.com/en-us/legal/terms/services');
   static final Uri _osmCopyrightUri =
@@ -33,6 +34,7 @@ class _LegalScreenState extends State<LegalScreen> {
   void initState() {
     super.initState();
     _appLicenseFuture = rootBundle.loadString('LICENSE.txt');
+    _privacyPolicyFuture = rootBundle.loadString('Datenschutz.txt');
   }
 
   Future<void> _openUri(Uri uri) async {
@@ -55,27 +57,16 @@ class _LegalScreenState extends State<LegalScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildSection(
+          _buildDocumentSection(
             title: 'App-Lizenz (MIT)',
-            child: FutureBuilder<String>(
-              future: _appLicenseFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Text(
-                    'Lizenztext konnte nicht geladen werden: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.red),
-                  );
-                }
-                final text = snapshot.data ?? '';
-                return SelectableText(text);
-              },
-            ),
+            future: _appLicenseFuture,
+            errorLabel: 'Lizenztext',
+          ),
+          const SizedBox(height: 16),
+          _buildDocumentSection(
+            title: 'Datenschutzerklärung',
+            future: _privacyPolicyFuture,
+            errorLabel: 'Datenschutzerklärung',
           ),
           const SizedBox(height: 16),
           _buildImprintSection(),
@@ -107,6 +98,35 @@ class _LegalScreenState extends State<LegalScreen> {
             child,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentSection({
+    required String title,
+    required Future<String> future,
+    required String errorLabel,
+  }) {
+    return _buildSection(
+      title: title,
+      child: FutureBuilder<String>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasError) {
+            return Text(
+              '$errorLabel konnte nicht geladen werden: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            );
+          }
+          final text = snapshot.data ?? '';
+          return SelectableText(text);
+        },
       ),
     );
   }
